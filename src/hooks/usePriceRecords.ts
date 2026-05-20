@@ -5,6 +5,16 @@ export const PRICE_RECORDS_STORAGE_KEY = "etf-lookthrough-price-records";
 
 export type PriceRecordInput = Omit<PriceRecord, "id">;
 
+export type UpsertManyPriceRecordsOptions = {
+  replaceSameDateSymbol: boolean;
+};
+
+export type UpsertManyPriceRecordsResult = {
+  importedCount: number;
+  replacedCount: number;
+  skippedDuplicateCount: number;
+};
+
 const isPriceRecord = (value: unknown): value is PriceRecord => {
   if (!value || typeof value !== "object") {
     return false;
@@ -143,6 +153,55 @@ export function usePriceRecords() {
     });
   };
 
+  const upsertManyPriceRecords = (
+    records: PriceRecordInput[],
+    options: UpsertManyPriceRecordsOptions,
+  ): UpsertManyPriceRecordsResult => {
+    const normalizedRecords = records.map(normalizeInput);
+    let importedCount = 0;
+    let replacedCount = 0;
+    let skippedDuplicateCount = 0;
+    let nextRecords = [...priceRecords];
+
+    normalizedRecords.forEach((recordInput) => {
+      const existingRecord = nextRecords.find(
+        (record) =>
+          record.symbol.toUpperCase() === recordInput.symbol &&
+          record.date === recordInput.date,
+      );
+
+      if (!existingRecord) {
+        nextRecords = [
+          ...nextRecords,
+          {
+            id: createPriceRecordId(),
+            ...recordInput,
+          },
+        ];
+        importedCount += 1;
+        return;
+      }
+
+      if (!options.replaceSameDateSymbol) {
+        skippedDuplicateCount += 1;
+        return;
+      }
+
+      nextRecords = nextRecords.map((record) =>
+        record.id === existingRecord.id ? { ...record, ...recordInput } : record,
+      );
+      replacedCount += 1;
+    });
+
+    setPriceRecords(nextRecords);
+
+    return {
+      importedCount,
+      replacedCount,
+      skippedDuplicateCount,
+    };
+  };
+
   const resetPriceRecords = () => {
     setPriceRecords([]);
   };
@@ -153,6 +212,7 @@ export function usePriceRecords() {
     updatePriceRecord,
     deletePriceRecord,
     upsertLatestPrice,
+    upsertManyPriceRecords,
     resetPriceRecords,
   };
 }

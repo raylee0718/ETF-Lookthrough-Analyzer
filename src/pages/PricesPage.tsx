@@ -1,8 +1,15 @@
-import { FormEvent, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useMemo, useState } from "react";
 import SectionCard from "../components/SectionCard";
 import StatCard from "../components/StatCard";
-import type { PriceRecordInput } from "../hooks/usePriceRecords";
+import type {
+  PriceRecordInput,
+  UpsertManyPriceRecordsResult,
+} from "../hooks/usePriceRecords";
 import { formatCurrency, formatPercent, formatShares } from "../lib/format";
+import {
+  parseDailyPriceImportText,
+  type PriceImportRow,
+} from "../lib/importPrices";
 import {
   getLatestPriceMap,
   getPriceCoverageSummary,
@@ -12,6 +19,11 @@ import type { PriceRecord } from "../types/prices";
 import type { CalculatedPosition } from "../types/transactions";
 
 const today = new Date().toISOString().slice(0, 10);
+
+const dailyPriceImportSample = [
+  "日期,代號,名稱,收盤價,來源,備註",
+  "2026-05-20,0050,元大台灣50,190.5,手動整理,範例",
+].join("\n");
 
 const emptyForm: PriceRecordInput = {
   symbol: "",
@@ -30,6 +42,10 @@ type PricesPageProps = {
   updatePriceRecord: (id: string, input: PriceRecordInput) => void;
   deletePriceRecord: (id: string) => void;
   upsertLatestPrice: (input: PriceRecordInput) => void;
+  upsertManyPriceRecords: (
+    records: PriceRecordInput[],
+    options: { replaceSameDateSymbol: boolean },
+  ) => UpsertManyPriceRecordsResult;
   resetPriceRecords: () => void;
 };
 
@@ -42,6 +58,7 @@ export default function PricesPage({
   updatePriceRecord,
   deletePriceRecord,
   upsertLatestPrice,
+  upsertManyPriceRecords,
   resetPriceRecords,
 }: PricesPageProps) {
   const [formValue, setFormValue] = useState<PriceRecordInput>(emptyForm);
@@ -49,6 +66,11 @@ export default function PricesPage({
   const [errors, setErrors] = useState<FormErrors>({});
   const [quickPrices, setQuickPrices] = useState<Record<string, string>>({});
   const [quickDates, setQuickDates] = useState<Record<string, string>>({});
+  const [priceImportText, setPriceImportText] = useState("");
+  const [priceImportRows, setPriceImportRows] = useState<PriceImportRow[]>([]);
+  const [priceImportError, setPriceImportError] = useState("");
+  const [priceImportResult, setPriceImportResult] = useState("");
+  const [replaceSameDateSymbol, setReplaceSameDateSymbol] = useState(true);
 
   const latestPriceMap = useMemo(
     () => getLatestPriceMap(priceRecords),
@@ -164,6 +186,64 @@ export default function PricesPage({
     setQuickDates((current) => ({ ...current, [position.symbol]: date }));
   };
 
+  const handleParsePriceImportText = (text = priceImportText) => {
+    const result = parseDailyPriceImportText(text, priceRecords);
+
+    setPriceImportRows(result.rows);
+    setPriceImportError(result.error ?? "");
+    setPriceImportResult("");
+  };
+
+  const handleImportPriceFile = async (file: File | undefined) => {
+    if (!file) {
+      return;
+    }
+
+    const text = await file.text();
+    setPriceImportText(text);
+    handleParsePriceImportText(text);
+  };
+
+  const handleClearPriceImportPreview = () => {
+    setPriceImportRows([]);
+    setPriceImportError("");
+    setPriceImportResult("");
+  };
+
+  const handleImportValidPriceRows = () => {
+    const validRows = priceImportRows.filter((row) => row.isValid);
+    const rowsToImport = validRows.filter(
+      (row) => replaceSameDateSymbol || !row.isDuplicate,
+    );
+    const skippedInvalidCount = priceImportRows.filter(
+      (row) => !row.isValid,
+    ).length;
+
+    if (rowsToImport.length === 0) {
+      setPriceImportResult("沒有可匯入的有效價格。");
+      return;
+    }
+
+    const result = upsertManyPriceRecords(
+      rowsToImport.map((row) => row.input),
+      { replaceSameDateSymbol },
+    );
+
+    setPriceImportResult(
+      `匯入 ${result.importedCount} 筆，覆蓋 ${result.replacedCount} 筆，略過重複 ${result.skippedDuplicateCount} 筆，略過錯誤 ${skippedInvalidCount} 筆。`,
+    );
+    setPriceImportRows([]);
+  };
+
+  const priceImportSummary = useMemo(
+    () => ({
+      validCount: priceImportRows.filter((row) => row.isValid).length,
+      invalidCount: priceImportRows.filter((row) => !row.isValid).length,
+      duplicateCount: priceImportRows.filter((row) => row.isDuplicate).length,
+    }),
+    [priceImportRows],
+  );
+
   return (
     <main className="min-h-screen bg-stone-100 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
@@ -254,6 +334,181 @@ export default function PricesPage({
           <div className="rounded-lg border border-dashed border-stone-300 bg-stone-50 p-4 text-sm leading-6 text-slate-500">
             目前沒有連接任何外部報價 API，也不會在背景自動抓價。請繼續使用手動輸入，或日後以 CSV 匯入每日價格。
             支援的價格來源類型：{getPriceSourceLabel("manual")}、{getPriceSourceLabel("csv")}、{getPriceSourceLabel("provider")}。
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="每日價格匯入"
+          description="貼上 CSV 或 Excel 表格資料，一次更新多筆每日收盤價。標題列為必填。"
+        >
+          <div className="grid gap-5">
+            <div className="grid gap-4 lg:grid-cols-[1fr_0.8fr]">
+              <label className="grid gap-2 text-sm font-medium text-slate-700">
+                貼上 CSV / 表格資料
+                <textarea
+                  className="min-h-44 rounded-lg border border-stone-300 bg-white px-3 py-2.5 font-mono text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  onChange={(event) => setPriceImportText(event.target.value)}
+                  placeholder={dailyPriceImportSample}
+                  value={priceImportText}
+                />
+              </label>
+
+              <div className="grid gap-4 rounded-lg border border-stone-200 bg-stone-50 p-4">
+                <label className="grid gap-2 text-sm font-medium text-slate-700">
+                  選擇 .csv 檔案
+                  <input
+                    accept=".csv,text/csv"
+                    className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-blue-700"
+                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                      void handleImportPriceFile(event.target.files?.[0])
+                    }
+                    type="file"
+                  />
+                </label>
+
+                <div className="grid gap-2">
+                  <p className="text-sm font-medium text-slate-700">範例格式</p>
+                  <pre className="overflow-x-auto rounded-lg border border-stone-200 bg-white p-3 text-xs leading-5 text-slate-700">
+                    {dailyPriceImportSample}
+                  </pre>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button
+                  className="rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
+                  onClick={() => handleParsePriceImportText()}
+                  type="button"
+                >
+                  解析價格資料
+                </button>
+                <button
+                  className="rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-stone-50"
+                  onClick={handleClearPriceImportPreview}
+                  type="button"
+                >
+                  清除預覽
+                </button>
+                <button
+                  className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-stone-300"
+                  disabled={priceImportRows.length === 0}
+                  onClick={handleImportValidPriceRows}
+                  type="button"
+                >
+                  匯入有效價格
+                </button>
+              </div>
+
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                <input
+                  checked={replaceSameDateSymbol}
+                  className="h-4 w-4 rounded border-stone-300 text-blue-700 focus:ring-blue-500"
+                  onChange={(event) => setReplaceSameDateSymbol(event.target.checked)}
+                  type="checkbox"
+                />
+                覆蓋同日期同代號價格
+              </label>
+            </div>
+
+            {priceImportError ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                {priceImportError}
+              </div>
+            ) : null}
+
+            {priceImportRows.length > 0 ? (
+              <div className="grid gap-3">
+                <div className="grid gap-2 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950 sm:grid-cols-3">
+                  <p>有效：{priceImportSummary.validCount} 筆</p>
+                  <p>錯誤：{priceImportSummary.invalidCount} 筆</p>
+                  <p>同日同代號：{priceImportSummary.duplicateCount} 筆</p>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[1040px] text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-stone-200 text-slate-500">
+                        <th className="pb-3 font-medium">列號</th>
+                        <th className="pb-3 font-medium">狀態</th>
+                        <th className="pb-3 font-medium">日期</th>
+                        <th className="pb-3 font-medium">代號</th>
+                        <th className="pb-3 font-medium">名稱</th>
+                        <th className="pb-3 text-right font-medium">收盤價</th>
+                        <th className="pb-3 font-medium">來源</th>
+                        <th className="pb-3 font-medium">備註</th>
+                        <th className="pb-3 font-medium">錯誤訊息</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {priceImportRows.map((row) => {
+                        const statusLabel = !row.isValid
+                          ? "錯誤"
+                          : row.isDuplicate
+                            ? replaceSameDateSymbol
+                              ? "將覆蓋"
+                              : "將略過"
+                            : "有效";
+                        const statusClass = !row.isValid
+                          ? "bg-red-50 text-red-700 ring-red-200"
+                          : row.isDuplicate
+                            ? "bg-amber-50 text-amber-700 ring-amber-200"
+                            : "bg-emerald-50 text-emerald-700 ring-emerald-200";
+
+                        return (
+                          <tr
+                            className="border-b border-stone-100 align-top last:border-0"
+                            key={`${row.rowNumber}-${row.input.symbol}-${row.input.date}`}
+                          >
+                            <td className="py-4 text-slate-600">{row.rowNumber}</td>
+                            <td className="py-4">
+                              <span
+                                className={`rounded-full px-3 py-1 text-xs font-medium ring-1 ${statusClass}`}
+                              >
+                                {statusLabel}
+                              </span>
+                              {row.isDuplicate ? (
+                                <p className="mt-2 max-w-44 text-xs leading-5 text-amber-700">
+                                  同一日期已有此代號價格，匯入後將更新或略過
+                                </p>
+                              ) : null}
+                            </td>
+                            <td className="py-4 text-slate-600">{row.input.date}</td>
+                            <td className="py-4 font-semibold text-slate-950">
+                              {row.input.symbol}
+                            </td>
+                            <td className="py-4 text-slate-700">
+                              {row.input.name ?? "-"}
+                            </td>
+                            <td className="py-4 text-right font-medium text-slate-950">
+                              {row.input.price > 0
+                                ? formatCurrency(row.input.price)
+                                : "-"}
+                            </td>
+                            <td className="py-4 text-slate-600">
+                              {row.input.source ?? "-"}
+                            </td>
+                            <td className="max-w-48 truncate py-4 text-slate-500">
+                              {row.input.note ?? "-"}
+                            </td>
+                            <td className="max-w-72 py-4 text-red-700">
+                              {row.errors.length > 0 ? row.errors.join("、") : "-"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
+
+            {priceImportResult ? (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+                {priceImportResult}
+              </div>
+            ) : null}
           </div>
         </SectionCard>
 
