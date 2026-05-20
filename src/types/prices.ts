@@ -1,10 +1,14 @@
+export type PriceSourceType = "manual" | "csv" | "provider";
+
 export type PriceRecord = {
   id: string;
   symbol: string;
   name?: string;
   price: number;
   date: string;
+  sourceType?: PriceSourceType;
   source?: string;
+  fetchedAt?: string;
   note?: string;
 };
 

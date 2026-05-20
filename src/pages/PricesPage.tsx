@@ -2,8 +2,12 @@ import { FormEvent, useMemo, useState } from "react";
 import SectionCard from "../components/SectionCard";
 import StatCard from "../components/StatCard";
 import type { PriceRecordInput } from "../hooks/usePriceRecords";
-import { formatCurrency, formatShares } from "../lib/format";
-import { getLatestPriceMap } from "../lib/prices";
+import { formatCurrency, formatPercent, formatShares } from "../lib/format";
+import {
+  getLatestPriceMap,
+  getPriceCoverageSummary,
+  getPriceSourceLabel,
+} from "../lib/prices";
 import type { PriceRecord } from "../types/prices";
 import type { CalculatedPosition } from "../types/transactions";
 
@@ -14,6 +18,7 @@ const emptyForm: PriceRecordInput = {
   name: "",
   price: 0,
   date: today,
+  sourceType: "manual",
   source: "",
   note: "",
 };
@@ -55,6 +60,10 @@ export default function PricesPage({
         a.symbol.localeCompare(b.symbol),
       ),
     [latestPriceMap],
+  );
+  const priceCoverageSummary = useMemo(
+    () => getPriceCoverageSummary(positions, priceRecords),
+    [positions, priceRecords],
   );
 
   const validateForm = () => {
@@ -101,7 +110,9 @@ export default function PricesPage({
       name: record.name ?? "",
       price: record.price,
       date: record.date,
+      sourceType: record.sourceType ?? "manual",
       source: record.source ?? "",
+      fetchedAt: record.fetchedAt,
       note: record.note ?? "",
     });
     setErrors({});
@@ -144,6 +155,7 @@ export default function PricesPage({
       name: position.name,
       price,
       date,
+      sourceType: "manual",
       source: "手動輸入",
       note: "由快速更新建立",
     });
@@ -198,6 +210,52 @@ export default function PricesPage({
             helperText="可用快速更新補價"
           />
         </section>
+
+        <SectionCard
+          title="價格資料覆蓋率"
+          description="未來自動抓價功能會補上這裡缺少的價格；目前仍可用手動輸入或 CSV 匯入。"
+        >
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              label="目前交易部位數"
+              value={`${priceCoverageSummary.totalPositionCount} 檔`}
+              helperText="股數大於 0 的交易部位"
+            />
+            <StatCard
+              label="已有價格數"
+              value={`${priceCoverageSummary.pricedPositionCount} 檔`}
+              helperText="已有最新價格紀錄"
+            />
+            <StatCard
+              label="缺少價格數"
+              value={`${priceCoverageSummary.missingPriceCount} 檔`}
+              helperText="目前會先用投入成本估算"
+            />
+            <StatCard
+              label="覆蓋率"
+              value={formatPercent(priceCoverageSummary.coveragePercent)}
+              helperText="已有價格 / 目前交易部位"
+            />
+          </div>
+          <div className="mt-4 rounded-lg border border-stone-200 bg-stone-50 p-4 text-sm leading-6 text-slate-600">
+            <p className="font-medium text-slate-950">缺少價格的代號</p>
+            <p className="mt-2">
+              {priceCoverageSummary.missingSymbols.length > 0
+                ? priceCoverageSummary.missingSymbols.join("、")
+                : "目前沒有缺少價格的交易部位。"}
+            </p>
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="自動收盤價來源"
+          description="尚未啟用。未來可接入台股收盤價資料來源，讓你開啟網站時自動更新價格。"
+        >
+          <div className="rounded-lg border border-dashed border-stone-300 bg-stone-50 p-4 text-sm leading-6 text-slate-500">
+            目前沒有連接任何外部報價 API，也不會在背景自動抓價。請繼續使用手動輸入，或日後以 CSV 匯入每日價格。
+            支援的價格來源類型：{getPriceSourceLabel("manual")}、{getPriceSourceLabel("csv")}、{getPriceSourceLabel("provider")}。
+          </div>
+        </SectionCard>
 
         <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
           <SectionCard
@@ -352,7 +410,9 @@ export default function PricesPage({
                   {positions
                     .filter((position) => position.shares > 0)
                     .map((position) => {
-                      const latestPrice = latestPriceMap.get(position.symbol);
+                      const latestPrice = latestPriceMap.get(
+                        position.symbol.toUpperCase(),
+                      );
 
                       return (
                         <tr
@@ -422,7 +482,7 @@ export default function PricesPage({
 
         <SectionCard title="最新價格摘要">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-sm">
+            <table className="w-full min-w-[760px] text-left text-sm">
               <thead>
                 <tr className="border-b border-stone-200 text-slate-500">
                   <th className="pb-3 font-medium">代號</th>
@@ -458,7 +518,7 @@ export default function PricesPage({
 
         <SectionCard title="價格紀錄" description="依日期由新到舊排序。">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] text-left text-sm">
+            <table className="w-full min-w-[980px] text-left text-sm">
               <thead>
                 <tr className="border-b border-stone-200 text-slate-500">
                   <th className="pb-3 font-medium">日期</th>

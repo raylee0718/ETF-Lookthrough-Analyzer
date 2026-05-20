@@ -2,8 +2,21 @@ import type { PortfolioHolding } from "../types/portfolio";
 import type {
   PositionWithMarketValue,
   PriceRecord,
+  PriceSourceType,
 } from "../types/prices";
 import type { CalculatedPosition } from "../types/transactions";
+
+export function getPriceSourceLabel(sourceType?: PriceSourceType) {
+  switch (sourceType) {
+    case "csv":
+      return "CSV 匯入";
+    case "provider":
+      return "自動來源";
+    case "manual":
+    default:
+      return "手動輸入";
+  }
+}
 
 export function getLatestPriceMap(priceRecords: PriceRecord[]) {
   const latestPriceMap = new Map<string, PriceRecord>();
@@ -18,6 +31,38 @@ export function getLatestPriceMap(priceRecords: PriceRecord[]) {
   });
 
   return latestPriceMap;
+}
+
+export function getMissingPriceSymbols(
+  positions: CalculatedPosition[],
+  priceRecords: PriceRecord[],
+) {
+  const latestPriceMap = getLatestPriceMap(priceRecords);
+
+  return positions
+    .filter((position) => position.shares > 0)
+    .filter((position) => !latestPriceMap.has(position.symbol.toUpperCase()))
+    .map((position) => position.symbol);
+}
+
+export function getPriceCoverageSummary(
+  positions: CalculatedPosition[],
+  priceRecords: PriceRecord[],
+) {
+  const activePositions = positions.filter((position) => position.shares > 0);
+  const missingSymbols = getMissingPriceSymbols(activePositions, priceRecords);
+  const totalPositionCount = activePositions.length;
+  const missingPriceCount = missingSymbols.length;
+  const pricedPositionCount = totalPositionCount - missingPriceCount;
+
+  return {
+    totalPositionCount,
+    pricedPositionCount,
+    missingPriceCount,
+    coveragePercent:
+      totalPositionCount > 0 ? (pricedPositionCount / totalPositionCount) * 100 : 0,
+    missingSymbols,
+  };
 }
 
 export function calculatePositionsWithMarketValue(

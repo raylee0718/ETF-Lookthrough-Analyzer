@@ -19,6 +19,7 @@ import {
 } from "../lib/overlap";
 import { calculatePositionsFromTransactions } from "../lib/positions";
 import {
+  getPriceCoverageSummary,
   getLatestPriceMap,
 } from "../lib/prices";
 import { getPortfolioHoldingsForAnalysis } from "../lib/portfolioSource";
@@ -86,6 +87,10 @@ export default function Dashboard({
   const latestPriceMap = useMemo(
     () => getLatestPriceMap(priceRecords),
     [priceRecords],
+  );
+  const priceCoverageSummary = useMemo(
+    () => getPriceCoverageSummary(transactionPositions, priceRecords),
+    [transactionPositions, priceRecords],
   );
 
   return (
@@ -167,6 +172,21 @@ export default function Dashboard({
               helperText="交易紀錄模式影響市值精準度"
             />
           </div>
+          {settings.portfolioDataSourceMode === "transactions" ? (
+            <div className="mt-4 rounded-lg border border-sky-200 bg-white/70 p-4 text-sm leading-6 text-sky-950">
+              <p>
+                價格資料覆蓋率：{formatPercent(priceCoverageSummary.coveragePercent)}
+                （已有 {priceCoverageSummary.pricedPositionCount} /{" "}
+                {priceCoverageSummary.totalPositionCount} 檔）
+              </p>
+              {priceCoverageSummary.missingPriceCount > 0 ? (
+                <p className="mt-2">
+                  部分標的缺少價格，目前暫以投入成本估算市值。缺少價格：{" "}
+                  {priceCoverageSummary.missingSymbols.join("、")}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </section>
 
         {unmappedEtfHoldings.length > 0 ? (

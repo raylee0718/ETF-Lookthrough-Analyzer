@@ -18,8 +18,13 @@ const isPriceRecord = (value: unknown): value is PriceRecord => {
     typeof record.price === "number" &&
     Number.isFinite(record.price) &&
     typeof record.date === "string" &&
+    (record.sourceType === undefined ||
+      record.sourceType === "manual" ||
+      record.sourceType === "csv" ||
+      record.sourceType === "provider") &&
     (record.name === undefined || typeof record.name === "string") &&
     (record.source === undefined || typeof record.source === "string") &&
+    (record.fetchedAt === undefined || typeof record.fetchedAt === "string") &&
     (record.note === undefined || typeof record.note === "string")
   );
 };
@@ -55,7 +60,9 @@ const normalizeInput = (input: PriceRecordInput): PriceRecordInput => ({
   name: input.name?.trim() || undefined,
   price: input.price,
   date: input.date,
+  sourceType: input.sourceType ?? "manual",
   source: input.source?.trim() || undefined,
+  fetchedAt: input.fetchedAt,
   note: input.note?.trim() || undefined,
 });
 

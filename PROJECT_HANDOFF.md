@@ -261,3 +261,10 @@ Avoid:
 - holdings added/removed research;
 - merging this React app back into the old Python project.
 
+## Step 18 Price Source Architecture
+
+- Current app supports manual price records through `PricesPage` and `usePriceRecords`.
+- Step 18 added a price source architecture for `manual`, `csv`, and future `provider` records.
+- Automatic price fetching is not implemented yet.
+- Future daily auto-analysis requires price provider integration. In the current local-first app, that should happen when the user opens the app unless a backend or scheduled job is introduced later.
+- Missing transaction-mode prices still fall back to cost-based market value estimation; lookthrough calculation logic was not changed.
