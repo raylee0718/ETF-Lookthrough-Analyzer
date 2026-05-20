@@ -1,270 +1,269 @@
-# PROJECT_HANDOFF
+# ETF Lookthrough Analyzer 專案交接摘要
 
-## Current Clean Project Path
+## 1. Project identity
 
-`C:\Users\uuuu1\OneDrive\桌面\ETF-Lookthrough-Analyzer`
+- Project name: `ETF Lookthrough Analyzer`
+- Chinese name: `ETF 穿透持股分析器`
+- Current clean project path: `C:\Users\uuuu1\OneDrive\桌面\ETF-Lookthrough-Analyzer`
+- GitHub repository: `https://github.com/raylee0718/ETF-Lookthrough-Analyzer.git`
+- Deployment: 已部署到 Vercel。專案文件目前只有 `docs/POST_DEPLOYMENT_TESTING.md` 中的 `Vercel production URL：待填入`，沒有實際 production URL，因此不要猜測網址。
 
-This folder is the clean React ETF Lookthrough Analyzer project. It was separated from the old Python active ETF research project.
+本專案是乾淨的 React 專案資料夾，已與舊的 Python active ETF research project 分開。未來維護時請繼續維持此邊界。
 
-Do not merge this project with the active ETF research project.
+## 2. Project goal
 
-## Project Goal
+ETF Lookthrough Analyzer 是 local-first 的個人投資工具，用來分析自己的 ETF / 股票投資組合在穿透 ETF 成分股後，實際曝險到哪些底層股票、產業與標的。
 
-ETF Lookthrough Analyzer is a local-first personal portfolio analysis tool. Its purpose is to help the user:
+目前用途包含：
 
-- maintain personal ETF / stock holdings;
-- maintain ETF constituent data manually;
-- calculate lookthrough exposure from ETF holdings to underlying stocks;
-- analyze ETF overlap;
-- maintain transaction records;
-- estimate transaction-derived holdings with manual price records;
-- export and import local backups.
+- 分析個人投資組合的底層股票曝險。
+- 檢查單一股票集中度。
+- 檢查不同 ETF 之間的成分股重疊。
+- 管理 ETF 成分股資料與資料日期狀態。
+- 管理交易紀錄、價格、手動持股與備份。
+- 透過 JSON 備份 / 匯入與 CSV 匯出保護 localStorage 資料。
 
-The app should remain focused on personal ETF lookthrough portfolio analysis.
+本專案不是學術或研究型的 ETF 經理人交易影響分析工具，也不應變成舊 Python active ETF research project。
 
-## Intentionally Out Of Scope
-
-Do not add the following to this project:
+明確不屬於本專案範圍：
 
 - ETF manager rebalance impact research
-- added / removed ETF holdings research
-- increased / decreased holdings research
+- added / removed holdings research
+- increased / decreased ETF holdings analysis
 - same-day / next-day / two-day stock return correlation
 - active ETF price reaction research
-- scraping or automatic ETF constituent fetching
-- automatic broker integration
-- backend, login, database, or cloud sync
-- routing library unless there is a future explicit product need
-- old Python research files such as `requirements.txt`, `notebooks/`, `data/`, `outputs/`, or `src/*.py`
+- backend scheduled jobs
+- 網站關閉時仍自動執行的背景每日分析
 
-Step 11 was intentionally simplified: this project keeps ETF data freshness/status only. It does not include ETF version comparison research.
+## 3. Current tech stack
 
-## Completed Steps
+- Vite
+- React
+- TypeScript
+- Tailwind CSS
+- Recharts
+- Browser `localStorage`
+- `vite-plugin-pwa` optional PWA / deployment setup
+- Static hosting / Vercel deployment
 
-- Clean React project separated from old Python research folder.
-- Manual holdings CRUD.
-- ETF constituent import from pasted table / CSV-like data.
-- Lookthrough exposure calculation.
-- ETF overlap calculation.
-- Dashboard with portfolio summary and analysis previews.
-- Portfolio data source mode:
-  - manual holdings;
-  - transaction-derived holdings.
-- Transaction records CRUD.
-- Manual price records.
-- Step 9: JSON backup/export and CSV export tools.
-- Step 10: transaction CSV import with preview, validation, duplicate warning, and append import.
-- Step 11: simplified ETF data freshness/status:
-  - `asOfDate`;
-  - `source`;
-  - latest constituent data date per ETF;
-  - latest constituent records used for Dashboard, LookthroughPage, and OverlapPage.
-- Step 12: documentation cleanup and handoff update.
+## 4. Completed steps so far
 
-## Current Pages
+- Step 1: project skeleton and mock dashboard：已完成。
+- Step 2: manual portfolio holdings + localStorage：已完成。
+- Step 3: ETF constituent import center + localStorage：已完成。
+- Step 4: lookthrough exposure calculation：已完成。
+- Step 5: ETF overlap analysis：已完成。
+- Step 6: transaction records + position calculation：已完成。
+- Step 7: manual price table + market value calculation：已完成。
+- Step 8: manual holdings mode vs transaction mode switching：已完成。
+- Step 9: JSON backup/import and CSV export：已完成。
+- Step 10: transaction CSV import：已完成。
+- Step 11: simplified ETF constituent data status / freshness：已完成，但只保留輕量資料狀態與 latest constituent date 行為。
+- Step 12: README / documentation cleanup：已完成。
+- Step 13: PWA / deployment preparation：已完成。
+- Step 14: deployment readiness / mobile testing checklist：已完成。
+- Step 15: Git initialization and GitHub push：已完成。
+- Step 16: Vercel pre-deployment check：已完成，專案已推到 GitHub 並已部署到 Vercel；實際 production URL 尚未寫入文件。
+- Step 17: post-deployment QA checklist：已完成，見 `docs/POST_DEPLOYMENT_TESTING.md`。
+- Step 18: price data source architecture：已完成，支援 `manual`、`csv`、未來 `provider` 三種 price source type。
+- Step 19: daily price CSV import：已完成，可貼上或匯入 CSV / Excel 表格每日收盤價。
 
-- `src/pages/Dashboard.tsx`
-  - Portfolio overview, lookthrough exposure preview, overlap preview, concentration warnings, transaction/price data status.
-- `src/pages/HoldingsPage.tsx`
-  - Manual holdings management.
-- `src/pages/EtfConstituentsPage.tsx`
-  - ETF constituent import, preview, save/replace for one ETF, saved records, ETF data status.
-- `src/pages/LookthroughPage.tsx`
-  - Detailed lookthrough stock exposure and industry exposure.
-- `src/pages/OverlapPage.tsx`
-  - ETF overlap pair analysis and all-pair ranking.
-- `src/pages/TransactionsPage.tsx`
-  - Transaction CRUD, calculated positions, transaction CSV import.
-- `src/pages/PricesPage.tsx`
-  - Manual price records.
-- `src/pages/BackupPage.tsx`
-  - JSON backup export/import and CSV exports.
+Step 11 特別說明：
 
-Navigation is managed in `src/App.tsx` with local React state.
+原本廣義的 ETF version comparison / added / removed / increased / decreased holdings 功能已移除，避免與獨立的 active ETF research project 重疊。本專案只應保留輕量的 ETF 成分股資料狀態、最新資料日期與避免重複計算的行為。
 
-## Current Hooks
+## 5. Current pages
 
-- `src/hooks/usePortfolioHoldings.ts`
-  - Manual holdings state and localStorage persistence.
-- `src/hooks/useEtfConstituents.ts`
-  - ETF constituent state and localStorage persistence.
-  - Replaces all records for one ETF when saving imported constituents.
-  - Exposes latest constituent helper.
-- `src/hooks/useTransactions.ts`
-  - Transaction state and localStorage persistence.
-- `src/hooks/usePriceRecords.ts`
-  - Manual price records state and localStorage persistence.
-- `src/hooks/useAppSettings.ts`
-  - App settings, especially portfolio data source mode.
-- `src/hooks/useLocalStorage.ts`
-  - Generic localStorage helper.
+- `Dashboard`: 顯示投資組合總覽、資料來源模式、穿透曝險摘要、產業曝險、ETF 重疊摘要、集中度提醒與交易 / 價格摘要。
+- `HoldingsPage`: 管理手動持股，支援新增、編輯、刪除、重設並存入 localStorage。
+- `EtfConstituentsPage`: 匯入、預覽、儲存與管理 ETF 成分股資料；顯示簡化資料狀態與最新資料日期。
+- `LookthroughPage`: 使用目前選定的投資組合資料來源，計算 ETF 穿透後的底層股票與產業曝險。
+- `OverlapPage`: 分析 ETF 之間的成分股數量重疊與加權重疊。
+- `TransactionsPage`: 管理交易紀錄，支援交易 CSV 匯入、預覽、重複偵測與部位推算。
+- `PricesPage`: 管理手動價格、快速更新交易部位價格、價格覆蓋率、每日價格 CSV 匯入，以及未來自動收盤價來源提示。
+- `BackupPage`: 匯出完整 JSON 備份、匯入 JSON 備份、匯出各種 CSV。
 
-## Current Lib Utilities
+目前沒有 active 的 `EtfVersionComparePage`，不要把已刪除或研究型版本比較頁面當成現有功能。
 
-- `src/lib/lookthrough.ts`
-  - Lookthrough exposure, industry exposure, concentration warnings, unmapped ETF holdings.
-- `src/lib/overlap.ts`
-  - Pairwise ETF overlap, all ETF overlap pairs, overlap level labels.
-- `src/lib/positions.ts`
-  - Transaction-to-position calculation and basic position conversion.
-- `src/lib/prices.ts`
-  - Latest price map, priced positions, conversion to holdings.
-- `src/lib/portfolioSource.ts`
-  - Chooses manual or transaction-derived holdings for analysis.
-- `src/lib/backup.ts`
-  - Backup file creation, backup validation, localStorage restore, CSV export helpers.
-- `src/lib/importTransactions.ts`
-  - Transaction CSV/table parsing, validation, duplicate detection.
-- `src/lib/constituentVersions.ts`
-  - Lightweight latest ETF constituent data selection and freshness/status summaries.
-  - No version comparison research should be added here.
-- `src/lib/format.ts`
-  - Currency, percent, number, and share formatting.
-- `src/lib/formatters.ts`
-  - Additional formatting helpers used by some pages.
-- `src/lib/portfolioStorage.ts`
-  - Manual holdings storage key and parsing/serialization helpers.
+## 6. Current hooks
 
-## Current Types
+- `usePortfolioHoldings`: 管理手動持股 localStorage 狀態。
+- `useEtfConstituents`: 管理 ETF 成分股 localStorage 狀態，支援依 ETF 取代匯入資料。
+- `useTransactions`: 管理交易紀錄 localStorage 狀態。
+- `usePriceRecords`: 管理價格紀錄 localStorage 狀態，支援單筆新增 / 更新 / 刪除、快速 upsert、批次每日價格 upsert。
+- `useAppSettings`: 管理 App 設定，例如 manual / transaction portfolio mode。
+- `useLocalStorage`: 泛用 localStorage helper，目前仍保留在專案中。
+
+## 7. Current lib utilities
+
+- `lookthrough.ts`: 計算 ETF 穿透後的底層股票曝險、產業曝險、未對應 ETF 與集中度提醒。
+- `overlap.ts`: 計算 ETF 兩兩成分股重疊、加權重疊與重疊等級。
+- `positions.ts`: 將交易紀錄轉換為目前部位、平均成本、已實現損益等。
+- `prices.ts`: 取得最新價格、計算交易部位市值、轉換交易部位為分析用 holdings、價格來源標籤、價格缺口與覆蓋率。
+- `portfolioSource.ts`: 根據 App 設定在手動持股模式與交易紀錄模式之間切換分析資料來源。
+- `backup.ts`: 建立 JSON 備份、驗證備份、寫回 localStorage、匯出 CSV。
+- `importTransactions.ts`: 解析交易 CSV / 貼上資料，產生預覽、驗證錯誤與重複判斷。
+- `importPrices.ts`: 解析每日價格 CSV / 貼上資料，支援中文與英文欄位、quoted CSV、tab-separated Excel 資料、錯誤列預覽與重複判斷。
+- `constituentVersions.ts`: 取得每檔 ETF 最新成分股資料與簡化資料狀態。用途是 freshness / latest record，不是研究型版本比較。
+- `format.ts`: 格式化金額、百分比、數字、股數。
+- `formatters.ts`: 早期格式化 helper，仍被部分頁面使用。
+- `portfolioStorage.ts`: 定義手動持股 localStorage key。
+
+## 8. Current types
 
 - `src/types/portfolio.ts`
   - `PortfolioHolding`
+  - `HoldingCategory`
   - `EtfConstituent`
   - `LookthroughExposure`
   - `IndustryExposure`
 - `src/types/transactions.ts`
-  - `TransactionType`
   - `TransactionRecord`
+  - `TransactionType`
   - `CalculatedPosition`
-  - `PositionCalculationWarning`
 - `src/types/prices.ts`
+  - `PriceSourceType`: `manual` / `csv` / `provider`
   - `PriceRecord`
   - `PositionWithMarketValue`
 - `src/types/settings.ts`
   - `PortfolioDataSourceMode`
   - `AppSettings`
+- Backup / import related types are mostly colocated in utilities:
+  - `BackupFile`, `BackupPreview` in `backup.ts`
+  - transaction import row/result types in `importTransactions.ts`
+  - price import row/result types in `importPrices.ts`
 
-## localStorage Keys
+## 9. localStorage keys
 
-- `etf-lookthrough-portfolio-holdings`
-  - Manual holdings.
-- `etf-lookthrough-etf-constituents`
-  - ETF constituent records.
-- `etf-lookthrough-transactions`
-  - Transaction records.
-- `etf-lookthrough-price-records`
-  - Manual price records.
-- `etf-lookthrough-app-settings`
-  - App settings.
+- `etf-lookthrough-portfolio-holdings`: 手動持股資料。
+- `etf-lookthrough-etf-constituents`: ETF 成分股資料。
+- `etf-lookthrough-transactions`: 交易紀錄。
+- `etf-lookthrough-price-records`: 價格紀錄，包含手動價格與 CSV 匯入價格。
+- `etf-lookthrough-app-settings`: App 設定，例如 portfolio data source mode。
 
-## Main Calculation Logic
+目前沒有其他主要 localStorage key。
 
-### Portfolio Source
+## 10. Main calculation logic
 
-`getPortfolioHoldingsForAnalysis` selects one of two analysis inputs:
+### Lookthrough exposure
 
-- manual holdings; or
-- transaction-derived positions with manual prices.
+分析資料來源先由 `portfolioSource.ts` 決定。若是手動模式，直接使用手動持股市值；若是交易模式，先由交易紀錄推算部位，再用價格計算市值並轉成分析用 holdings。
 
-### Lookthrough Exposure
+`lookthrough.ts` 會依 ETF 成分股權重，把 ETF 持股市值拆成底層股票曝險。直接股票或無法對應成分股的標的會保留為直接曝險或未對應提醒。
 
-`calculateLookthroughExposure`:
+### ETF overlap
 
-- calculates total portfolio value from holdings;
-- maps ETF symbols to constituent records;
-- if a holding has matching ETF constituents, distributes holding market value by constituent `weightPercent`;
-- if a holding has no constituent data, treats the holding as direct exposure;
-- groups exposure by underlying stock symbol;
-- calculates portfolio weight for each exposure.
+`overlap.ts` 依 ETF 成分股清單計算兩檔 ETF 的共同股票數量、各自重疊比例與加權重疊。這是個人持股重疊檢查，不是 ETF 經理人交易研究。
 
-Dashboard and LookthroughPage pass latest constituent records per ETF by default, using `getLatestConstituentsByEtf`, to avoid double counting if older dated records remain in localStorage.
+### Transactions to positions
 
-### Industry Exposure
+`positions.ts` 將買進 / 賣出交易依代號彙總為目前股數、平均成本、總成本、已實現損益等部位資料。
 
-`calculateIndustryExposure` groups lookthrough exposure by industry and sums exposure values and portfolio weights.
+### Prices and market value
 
-### Concentration Warnings
+`prices.ts` 會為每個代號取最新日期價格。交易模式下，若有價格，市值為 `shares × latest price`；若缺少價格，目前會以投入成本估算市值並標記 missing。
 
-`findConcentrationWarnings` flags high single-stock exposure based on portfolio weight thresholds.
+### Manual mode vs transaction mode
 
-### ETF Overlap
+- Manual mode: 直接使用 `HoldingsPage` 的手動市值。
+- Transaction mode: 使用 `TransactionsPage` 的交易紀錄推算部位，再用 `PricesPage` 的價格計算市值。
+- `PortfolioModeSwitch` 讓使用者切換兩種模式。
 
-`calculatePairwiseEtfOverlap`:
+### Price coverage
 
-- aggregates each ETF's constituents by stock symbol;
-- finds shared stocks;
-- calculates overlap by count and weighted overlap;
-- uses `min(weightA, weightB)` for weighted overlap contribution.
+Step 18 後，`getPriceCoverageSummary` 會計算：
 
-OverlapPage uses latest constituent records per ETF by default.
+- 目前交易部位數
+- 已有價格數
+- 缺少價格數
+- 覆蓋率
+- 缺少價格的代號
 
-### Transactions And Positions
+Dashboard 與 PricesPage 會使用這些資訊提醒交易模式下的價格完整度。
 
-`calculatePositionsFromTransactions`:
+### Daily price CSV import
 
-- sorts transactions by date and id;
-- buys add shares and cost basis;
-- sells reduce shares using average cost;
-- calculates realized P/L;
-- warns if a sell exceeds available shares.
+Step 19 後，`PricesPage` 可貼上或選擇 CSV / Excel 表格每日價格資料。`importPrices.ts` 會解析資料、保留無效列並顯示錯誤、偵測同日期同代號價格。匯入時可選擇覆蓋或略過重複資料。
 
-### Prices
+匯入價格會寫入 `usePriceRecords` 管理的 localStorage，並設定：
 
-`getLatestPriceMap` selects latest price by symbol. `calculatePositionsWithMarketValue` combines calculated positions with manual prices.
+- `sourceType: "csv"`
+- `source`: 使用輸入來源或預設 `CSV 匯入`
+- `fetchedAt`: 匯入時的 timestamp
 
-### Backup
+匯入後交易模式市值、價格覆蓋率、Dashboard 與 LookthroughPage 都會透過既有資料流重新計算。
 
-JSON backup includes:
+## 11. Daily analysis status
 
-- manual holdings;
-- ETF constituents;
-- transactions;
-- price records;
-- app settings.
+- App 已可在 holdings、transactions、prices 或 ETF constituents 更新後，重新計算 Dashboard 與穿透曝險。
+- Step 19 提供半自動每日流程：使用者可匯入每日價格 CSV，App 立即更新價格並重新計算交易模式市值與穿透曝險。
+- Fully automatic stock price fetching 尚未實作。
+- 網站關閉時的 fully automatic background daily analysis 在目前 frontend-only + localStorage 設計中不可行，除非引入 backend、database 或 scheduled infrastructure。
+- 下一個合理方向是 price provider integration：在使用者開啟 App 時，自動向合法且穩定的台股收盤價資料來源更新價格。
 
-Restore writes directly to localStorage and expects a page refresh.
+## 12. Deployment and data warning
 
-## Known Technical Debt
+- App 是 local-first。
+- 資料儲存在每個 browser / device 的 localStorage。
+- 桌機與手機不會自動同步。
+- 請使用 JSON backup/export/import 在裝置之間搬移資料。
+- 清除瀏覽器資料、清除網站資料、換瀏覽器、使用無痕模式或換手機，可能會刪除 App 資料。
+- 即使已部署到 Vercel，GitHub repo 仍可維持 private。
+- Vercel 靜態部署不等於資料雲端同步；它只提供 App 檔案，使用者資料仍在本機瀏覽器。
 
-- Some older Traditional Chinese strings in source files are mojibake/encoding-corrupted. Build passes, but UI/source cleanup is recommended.
-- No automated tests yet.
-- Backup validation is structural and not deeply validating every nested record.
-- localStorage schema migration is not implemented.
-- Import parser logic is split across constituent import and transaction import.
-- Bundle size triggers Vite's default 500 kB warning.
-- Dependencies are currently set to `latest`.
-- Navigation is state-based, not URL-based.
+## 13. Known limitations / technical debt
 
-## Safe Next Steps
+- No backend。
+- No login。
+- No database。
+- 尚未實作 automatic stock price fetching。
+- 尚未實作 automatic ETF constituent fetching。
+- No cross-device sync。
+- localStorage schema migration 尚未完整設計。
+- 寬表格在手機上的 UX 還可以更好。
+- 重要 calculation utilities 需要輕量單元測試。
+- 需要持續小心與舊 active ETF research project 分離，不要把 ETF 經理人交易影響研究功能加回此 App。
 
-Stay inside personal lookthrough-tool scope.
+## 14. Safe next steps
 
-Recommended safe next steps:
+建議優先順序：
 
-- Clean mojibake UI strings gradually.
-- Add lightweight tests for:
-  - `calculateLookthroughExposure`;
-  - `calculatePairwiseEtfOverlap`;
-  - `calculatePositionsFromTransactions`;
-  - `parseTransactionsImportText`;
-  - `getLatestConstituentsByEtf`.
-- Add clearer import templates for ETF constituents and transactions.
-- Improve mobile table layouts.
-- Improve backup validation and user-facing restore warnings.
-- Add PWA polish.
-- Consider static deployment.
+1. Price provider integration / automatic Taiwan closing price fetch when the app opens。
+2. Better mobile table UI。
+3. Lightweight unit tests for calculation utilities。
+4. Import templates and data validation polish。
+5. Optional PWA polish。
+6. 只有當使用者真的需要網站關閉時仍執行的背景每日任務，才考慮 backend / scheduled automation。
 
-Avoid:
+### Recommended next Codex prompt
 
-- active ETF price reaction research;
-- ETF manager rebalance analysis;
-- holdings added/removed research;
-- merging this React app back into the old Python project.
+```text
+Please work inside:
+C:\Users\uuuu1\OneDrive\桌面\ETF-Lookthrough-Analyzer
 
-## Step 18 Price Source Architecture
+Implement only the next safe step: price provider integration preparation for Taiwan closing prices when the user opens the app.
 
-- Current app supports manual price records through `PricesPage` and `usePriceRecords`.
-- Step 18 added a price source architecture for `manual`, `csv`, and future `provider` records.
-- Automatic price fetching is not implemented yet.
-- Future daily auto-analysis requires price provider integration. In the current local-first app, that should happen when the user opens the app unless a backend or scheduled job is introduced later.
-- Missing transaction-mode prices still fall back to cost-based market value estimation; lookthrough calculation logic was not changed.
+Important:
+- Do not add backend, login, database, scraping, or scheduled jobs.
+- Do not implement active ETF research features.
+- Do not add ETF manager rebalance impact research, added/removed holdings research, increased/decreased ETF holdings analysis, or same-day/next-day/two-day return correlation.
+- Preserve existing lookthrough, transaction, and portfolio mode calculation logic.
+- Prefer an interface/adapter layer and UI toggle/placeholder before any real provider call.
+```
+
+## 15. Verification notes
+
+交接文件更新後應執行：
+
+```powershell
+npm.cmd run build
+npx.cmd tsc --noEmit --noUnusedLocals --noUnusedParameters
+```
+
+若只有 `PROJECT_HANDOFF.md` 改動，請只提交文件更新：
+
+```powershell
+git add PROJECT_HANDOFF.md
+git commit -m "Update project handoff"
+git push
+```
