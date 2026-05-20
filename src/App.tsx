@@ -54,7 +54,7 @@ export default function App() {
               ETF Lookthrough Analyzer
             </p>
             <p className="text-xs text-slate-500">
-              Local-first：資料僅儲存在此瀏覽器。
+              Local-first｜資料儲存在此瀏覽器｜請定期備份
             </p>
           </div>
           <div className="-mx-1 flex gap-1 overflow-x-auto rounded-lg bg-stone-100 p-1 sm:mx-0">
