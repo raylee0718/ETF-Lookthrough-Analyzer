@@ -11,6 +11,11 @@ import {
   type PriceImportRow,
 } from "../lib/importPrices";
 import {
+  fetchTpexClosingPrices,
+  fetchTwseClosingPrices,
+  fetchedPricesToPriceRecords,
+} from "../lib/priceProviders";
+import {
   getLatestPriceMap,
   getPriceCoverageSummary,
   getPriceSourceLabel,
@@ -51,6 +56,17 @@ type PricesPageProps = {
 
 type FormErrors = Partial<Record<keyof PriceRecordInput, string>>;
 
+type ProviderRefreshResult = {
+  provider: string;
+  fetchedAt: string;
+  fetchedCount: number;
+  importedCount: number;
+  replacedCount: number;
+  skippedDuplicateCount: number;
+  warnings: string[];
+  errors: string[];
+};
+
 export default function PricesPage({
   priceRecords,
   positions,
@@ -71,6 +87,11 @@ export default function PricesPage({
   const [priceImportError, setPriceImportError] = useState("");
   const [priceImportResult, setPriceImportResult] = useState("");
   const [replaceSameDateSymbol, setReplaceSameDateSymbol] = useState(true);
+  const [providerLoading, setProviderLoading] = useState<
+    "twse" | "tpex" | null
+  >(null);
+  const [providerRefreshResult, setProviderRefreshResult] =
+    useState<ProviderRefreshResult | null>(null);
 
   const latestPriceMap = useMemo(
     () => getLatestPriceMap(priceRecords),
@@ -235,6 +256,37 @@ export default function PricesPage({
     setPriceImportRows([]);
   };
 
+  const handleProviderRefresh = async (market: "twse" | "tpex") => {
+    setProviderLoading(market);
+    setProviderRefreshResult(null);
+
+    const providerResult =
+      market === "twse"
+        ? await fetchTwseClosingPrices()
+        : await fetchTpexClosingPrices();
+    const records = fetchedPricesToPriceRecords(providerResult.prices);
+    const upsertResult =
+      records.length > 0
+        ? upsertManyPriceRecords(records, { replaceSameDateSymbol: true })
+        : {
+            importedCount: 0,
+            replacedCount: 0,
+            skippedDuplicateCount: 0,
+          };
+
+    setProviderRefreshResult({
+      provider: providerResult.provider,
+      fetchedAt: providerResult.fetchedAt,
+      fetchedCount: providerResult.prices.length,
+      importedCount: upsertResult.importedCount,
+      replacedCount: upsertResult.replacedCount,
+      skippedDuplicateCount: upsertResult.skippedDuplicateCount,
+      warnings: providerResult.warnings,
+      errors: providerResult.errors,
+    });
+    setProviderLoading(null);
+  };
+
   const priceImportSummary = useMemo(
     () => ({
       validCount: priceImportRows.filter((row) => row.isValid).length,
@@ -290,6 +342,59 @@ export default function PricesPage({
             helperText="可用快速更新補價"
           />
         </section>
+
+        <SectionCard
+          title="自動收盤價更新"
+          description="這會在你按下更新時，嘗試從官方公開資料抓取台股收盤價，並寫入價格表。這不是背景自動排程。"
+        >
+          <div className="grid gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <button
+                className="rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-stone-300"
+                disabled={providerLoading !== null}
+                onClick={() => void handleProviderRefresh("twse")}
+                type="button"
+              >
+                {providerLoading === "twse" ? "更新中..." : "更新上市收盤價"}
+              </button>
+              <button
+                className="rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-slate-400"
+                disabled={providerLoading !== null}
+                onClick={() => void handleProviderRefresh("tpex")}
+                type="button"
+              >
+                {providerLoading === "tpex" ? "更新中..." : "更新上櫃收盤價"}
+              </button>
+            </div>
+
+            {providerRefreshResult ? (
+              <div className="grid gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-950">
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                  <p>來源：{providerRefreshResult.provider}</p>
+                  <p>抓取：{providerRefreshResult.fetchedCount} 筆</p>
+                  <p>新增：{providerRefreshResult.importedCount} 筆</p>
+                  <p>更新：{providerRefreshResult.replacedCount} 筆</p>
+                  <p>略過：{providerRefreshResult.skippedDuplicateCount} 筆</p>
+                </div>
+                <p>抓取時間：{providerRefreshResult.fetchedAt}</p>
+                {providerRefreshResult.warnings.length > 0 ? (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800">
+                    {providerRefreshResult.warnings.map((warning) => (
+                      <p key={warning}>{warning}</p>
+                    ))}
+                  </div>
+                ) : null}
+                {providerRefreshResult.errors.length > 0 ? (
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-700">
+                    {providerRefreshResult.errors.map((error) => (
+                      <p key={error}>{error}</p>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </SectionCard>
 
         <SectionCard
           title="價格資料覆蓋率"
