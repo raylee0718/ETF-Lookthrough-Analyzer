@@ -9,6 +9,7 @@ import {
   getEtfProviderCapabilityNotes,
 } from "../lib/etfHoldingsProviders";
 import { formatPercent } from "../lib/formatters";
+import { YUANTA_0050_HOLDINGS_URL } from "../lib/taiwanEtfProviders";
 import type {
   EtfHoldingsFetchResult,
   EtfHoldingsProviderStatus,
@@ -64,6 +65,12 @@ const providerStatusLabels: Record<EtfHoldingsProviderStatus, string> = {
 const getProviderTypeLabel = (providerType: EtfHoldingsProviderType) =>
   providerTypeOptions.find((option) => option.value === providerType)?.label ??
   providerType;
+
+const getProviderResultWeightTotal = (result: EtfHoldingsFetchResult) =>
+  result.constituents.reduce(
+    (sum, constituent) => sum + constituent.weightPercent,
+    0,
+  );
 
 type ParseResult = {
   records: EtfConstituentInput[];
@@ -425,6 +432,55 @@ export default function EtfConstituentsPage({
     }
   };
 
+  const handleCreateYuanta0050Provider = () => {
+    const existingConfig = providerConfigs.find(
+      (config) => config.etfSymbol === "0050",
+    );
+    const presetConfig: EtfProviderConfig = {
+      etfSymbol: "0050",
+      providerType: "issuer",
+      sourceUrl: YUANTA_0050_HOLDINGS_URL,
+      notes: "0050 provider prototype",
+      enabled: true,
+    };
+
+    if (existingConfig) {
+      setProviderForm(existingConfig);
+      return;
+    }
+
+    upsertProviderConfig(presetConfig);
+    setProviderForm(presetConfig);
+  };
+
+  const handleSaveProviderResult = (result: EtfHoldingsFetchResult) => {
+    if (result.constituents.length === 0) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `確定要用 provider 回傳的 ${result.constituents.length} 筆成分股取代 ${result.etfSymbol} 目前儲存的成分股嗎？`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    replaceConstituentsForEtf(
+      result.etfSymbol,
+      result.constituents.map((constituent) => ({
+        etfSymbol: constituent.etfSymbol,
+        stockSymbol: constituent.stockSymbol,
+        stockName: constituent.stockName,
+        weightPercent: constituent.weightPercent,
+        industry: constituent.industry,
+        asOfDate: constituent.asOfDate,
+        source: constituent.source,
+      })),
+    );
+    setSelectedEtfSymbol(result.etfSymbol);
+  };
+
   return (
     <main className="min-h-screen bg-stone-100 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
@@ -490,6 +546,20 @@ export default function EtfConstituentsPage({
               <p className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-950">
                 ETF 持股自動抓取會依資料來源而異。若官方資料無法從瀏覽器穩定取得，仍建議使用 CSV 匯入作為備援。
               </p>
+
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-950">
+                <p className="font-semibold">目前正在試作 0050 provider。</p>
+                <p>
+                  若自動來源抓取失敗，請使用 CSV 匯入。CSV 匯入仍是目前最穩定的備援流程。
+                </p>
+                <button
+                  className="mt-3 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800"
+                  onClick={handleCreateYuanta0050Provider}
+                  type="button"
+                >
+                  建立 0050 元大台灣50 provider
+                </button>
+              </div>
 
               <div className="grid gap-3 rounded-lg border border-stone-200 bg-stone-50 p-4 lg:grid-cols-[1fr_1fr_1.4fr]">
                 <label className="grid gap-2 text-sm font-medium text-slate-700">
@@ -662,6 +732,63 @@ export default function EtfConstituentsPage({
                                       {error}
                                     </p>
                                   ))}
+                                  {testResult.constituents.length > 0 ? (
+                                    <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-emerald-950">
+                                      <div className="grid gap-1">
+                                        <p>ETF 代號：{testResult.etfSymbol}</p>
+                                        <p>資料日期：{testResult.asOfDate ?? "-"}</p>
+                                        <p>資料來源：{testResult.source}</p>
+                                        <p>成分股筆數：{testResult.constituents.length}</p>
+                                        <p>
+                                          權重合計：
+                                          {formatPercent(
+                                            getProviderResultWeightTotal(testResult),
+                                          )}
+                                        </p>
+                                      </div>
+                                      <div className="mt-3 overflow-x-auto">
+                                        <table className="w-full min-w-[420px] text-left text-xs">
+                                          <thead>
+                                            <tr className="border-b border-emerald-200">
+                                              <th className="pb-2 font-medium">ETF 代號</th>
+                                              <th className="pb-2 font-medium">股票</th>
+                                              <th className="pb-2 text-right font-medium">權重</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            {testResult.constituents
+                                              .slice(0, 10)
+                                              .map((constituent) => (
+                                                <tr
+                                                  className="border-b border-emerald-100 last:border-0"
+                                                  key={`${constituent.etfSymbol}-${constituent.stockSymbol}`}
+                                                >
+                                                  <td className="py-2">{constituent.etfSymbol}</td>
+                                                  <td className="py-2">
+                                                    {constituent.stockSymbol}{" "}
+                                                    {constituent.stockName}
+                                                  </td>
+                                                  <td className="py-2 text-right">
+                                                    {formatPercent(
+                                                      constituent.weightPercent,
+                                                    )}
+                                                  </td>
+                                                </tr>
+                                              ))}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                      <button
+                                        className="mt-3 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800"
+                                        onClick={() =>
+                                          handleSaveProviderResult(testResult)
+                                        }
+                                        type="button"
+                                      >
+                                        儲存此 provider 結果
+                                      </button>
+                                    </div>
+                                  ) : null}
                                 </div>
                               ) : (
                                 "尚未測試"

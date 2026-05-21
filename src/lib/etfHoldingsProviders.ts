@@ -1,5 +1,6 @@
 import type { EtfHoldingsFetchResult, EtfProviderConfig } from "../types/etfProvider";
 import type { EtfConstituent } from "../types/portfolio";
+import { fetchYuanta0050Holdings } from "./taiwanEtfProviders";
 
 type RawConstituentRow = Record<string, unknown>;
 
@@ -165,6 +166,10 @@ export async function fetchEtfHoldingsByConfig(
   }
 
   if (normalizedConfig.providerType === "issuer") {
+    if (normalizedConfig.etfSymbol === "0050") {
+      return fetchYuanta0050Holdings();
+    }
+
     return createResult({
       config: normalizedConfig,
       status: "unsupported",
