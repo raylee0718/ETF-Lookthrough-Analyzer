@@ -11,6 +11,10 @@ export const YUANTA_0050_PCF_URL =
   "https://www.yuantaetfs.com/tradeInfo/pcf/0050";
 export const UPAMC_00981A_PCF_URL =
   "https://www.ezmoney.com.tw/ETF/Transaction/PCF?fundCode=49YTW";
+export const UPAMC_00981A_GET_PCF_URL =
+  "https://www.ezmoney.com.tw/ETF/Transaction/GetPCF";
+export const UPAMC_00981A_PCF_EXCEL_URL =
+  "https://www.ezmoney.com.tw/ETF/Transaction/PCFExcelNPOI?fundCode=49YTW&date=115/05/22&specificDate=true";
 export const TWSE_00981A_ETFORTUNE_URL =
   "https://www.twse.com.tw/zh/ETFortune/etfInfo/00981A";
 export const FSITC_00994A_CAMPAIGN_URL =
@@ -103,13 +107,18 @@ export function getKnownTaiwanEtfProviderCapabilities(): KnownTaiwanEtfProviderC
       etfName: "主動統一台股增長",
       issuer: "統一證券投資信託股份有限公司",
       status: "investigating",
-      statusLabel: "官方來源盤點中",
-      officialCandidateUrls: [UPAMC_00981A_PCF_URL, TWSE_00981A_ETFORTUNE_URL],
-      candidateSourceNotes: [
-        "統一投信官方 PCF 頁可由 shell 讀取，但尚未確認可穩定取得完整股票權重欄位。",
-        "TWSE e添富可確認 ETF 基本資料，未提供可直接轉成穿透分析的完整持股權重。",
+      statusLabel: "官方 PCF 深度驗證中",
+      officialCandidateUrls: [
+        UPAMC_00981A_PCF_URL,
+        UPAMC_00981A_GET_PCF_URL,
+        UPAMC_00981A_PCF_EXCEL_URL,
+        TWSE_00981A_ETFORTUNE_URL,
       ],
-      recommendedFallback: "目前請先使用 CSV 匯入",
+      candidateSourceNotes: [
+        "已找到統一投信官方 PCF AJAX：POST /ETF/Transaction/GetPCF，回傳股票代號、名稱、股數、金額與 NavRate 持股權重。",
+        "官方 JSON 端點未回 CORS header，前端瀏覽器自動化可能需要 serverless proxy；本步驟暫不接 provider。",
+      ],
+      recommendedFallback: "目前仍建議 CSV 匯入；若官方來源確認可由部署環境穩定讀取，下一步才加入 provider。",
     },
     {
       etfSymbol: "00994A",
