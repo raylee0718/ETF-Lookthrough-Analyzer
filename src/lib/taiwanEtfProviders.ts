@@ -19,6 +19,14 @@ export const TWSE_00981A_ETFORTUNE_URL =
   "https://www.twse.com.tw/zh/ETFortune/etfInfo/00981A";
 export const FSITC_00994A_CAMPAIGN_URL =
   "https://www.fsitc.com.tw/act/202512_994AETF/index.html";
+export const FSITC_00994A_FUND_DETAIL_URL =
+  "https://www.fsitc.com.tw/FundDetail.aspx?ID=182";
+export const FSITC_00994A_ETF_LIST_URL =
+  "https://www.fsitc.com.tw/ETFList.aspx";
+export const FSITC_00994A_GET_HD_URL =
+  "https://www.fsitc.com.tw/WebAPI.aspx/Get_hd";
+export const TWSE_00994A_PRODUCT_CONTENT_URL =
+  "https://www.twse.com.tw/rwd/zh/ETF/productContent?id=00994A&response=json";
 export const TWSE_00994A_NEWS_URL =
   "https://www.twse.com.tw/zh/ETFortune/newsDetail/8a8216d69a3d6cf9019b8d7c0d7006a7";
 
@@ -163,13 +171,21 @@ export function getKnownTaiwanEtfProviderCapabilities(): KnownTaiwanEtfProviderC
       etfName: "主動第一金台股優",
       issuer: "第一金證券投資信託股份有限公司",
       status: "investigating",
-      statusLabel: "官方來源盤點中",
-      officialCandidateUrls: [FSITC_00994A_CAMPAIGN_URL, TWSE_00994A_NEWS_URL],
-      candidateSourceNotes: [
-        "第一金投信官方頁與公開說明書可讀，但目前未發現完整持股權重下載檔。",
-        "TWSE e添富新上市資訊與週報可確認商品與交易資料，未揭露完整持股權重。",
+      statusLabel: "官方來源深度驗證中",
+      officialCandidateUrls: [
+        FSITC_00994A_FUND_DETAIL_URL,
+        FSITC_00994A_GET_HD_URL,
+        FSITC_00994A_ETF_LIST_URL,
+        FSITC_00994A_CAMPAIGN_URL,
+        TWSE_00994A_PRODUCT_CONTENT_URL,
+        TWSE_00994A_NEWS_URL,
       ],
-      recommendedFallback: "目前請先使用 CSV 匯入",
+      candidateSourceNotes: [
+        "已找到第一金投信官方 FundDetail AJAX：POST /WebAPI.aspx/Get_hd，可回傳股票代號、名稱、持股權重與股數。",
+        "TWSE ETF productContent 可確認 00994A 的官方 PCF 入口指向第一金 FundDetail 申購買回清單頁。",
+        "官方 JSON 端點未回 CORS header，前端瀏覽器自動化可能需要 serverless proxy；本步驟暫不接 parser/provider。",
+      ],
+      recommendedFallback: "目前仍建議 CSV 匯入；下一步可做 00994A parser proof-of-concept。",
     },
   ];
 }

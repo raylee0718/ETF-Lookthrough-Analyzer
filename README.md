@@ -166,6 +166,8 @@ Step 29 針對 00981A 統一投信官方 PCF 做深度驗證，已找到官方 A
 
 Step 30 已加入 00981A 官方 PCF JSON parser POC，可把 `asset[AssetCode=ST].Details` 轉成 `EtfConstituent[]`，並以 `NavRate` 作為 `weightPercent`。這只是 parser proof，不會從 UI 呼叫官方端點，也沒有加入 00981A auto-fetch 或儲存 provider 結果；CORS 問題解決前仍以 CSV 匯入為 fallback。
 
+Step 31 針對 00994A 第一金投信官方來源做深度驗證，已找到 FundDetail 頁使用的官方 AJAX `WebAPI.aspx/Get_hd`，可回傳股票代號、股票名稱、持股權重、股數與資料日期。00994A 目前是 `ready_for_parser_poc`，尚未加入 parser/provider 或 UI auto-fetch；官方端點未回 CORS header，CSV 匯入仍是 MVP fallback。
+
 新增的 provider config 會儲存在 `etf-lookthrough-etf-provider-configs`。
 
 ## 0050 provider 試作

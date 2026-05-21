@@ -171,48 +171,117 @@ Parser 只依 Step 29 驗證到的官方 JSON 結構解析：
 - ETF symbol：00994A
 - ETF name：第一金台股趨勢優選主動式 ETF / 主動第一金台股優
 - issuer：第一金證券投資信託股份有限公司
-- support decision：`csv_fallback_only`
+- support decision：`ready_for_parser_poc`
 
 ### 官方候選來源
 
 | URL | 來源 | source type | shell fetch | browser fetch / CORS | 內容判斷 |
 | --- | --- | --- | --- | --- | --- |
+| `https://www.fsitc.com.tw/FundDetail.aspx?ID=182` | 第一金投信基金詳細頁 | HTML / dynamic AJAX | 可讀，HTTP 200，頁面含申購買回清單 tab 與 `WebAPI.aspx/Get_hd` 呼叫 | 未見 `Access-Control-Allow-Origin`；頁面內 AJAX 同源可用，但外部前端跨域可能被擋 | 可確認 FundID 182、股票代號 00994A、PCF 顯示區與官方 AJAX request shape |
+| `https://www.fsitc.com.tw/WebAPI.aspx/Get_hd` | 第一金投信 FundDetail AJAX | JSON via POST | 可讀，HTTP 200，回傳 `application/json; charset=utf-8` | response 無 `Access-Control-Allow-Origin`；OPTIONS preflight 無可用 CORS header | 可取得完整股票明細，含股票代號、股票名稱、持股權重與股數 |
+| `https://www.fsitc.com.tw/ETFList.aspx` | 第一金投信 ETF list | HTML | 可讀，HTTP 200 | 未見 CORS header | ETF 列表 / 導航，不是持股資料來源 |
 | `https://www.fsitc.com.tw/act/202512_994AETF/index.html` | 第一金投信官方產品 / 募集頁 | HTML | 可讀，HTTP 200 | 未見 `Access-Control-Allow-Origin`；頁面 CSP 允許多來源但不等於可跨域 fetch | 產品介紹、策略與募集資訊；有公開說明書、簡式公開說明書、DM 連結；沒有完整持股權重 |
 | `https://www.fsitc.com.tw/ViewFile.aspx?path=1&id=182` | 第一金投信公開說明書 | PDF | 可讀，HTTP 200，PDF 約 176 頁 | PDF 可下載但不適合前端即時 provider | 基金契約、投資範圍與揭露規範；不是每日完整持股 |
 | `https://www.fsitc.com.tw/ViewFile.aspx?path=2&id=182` | 第一金投信簡式公開說明書 | PDF | 可讀，HTTP 200，PDF 約 4 頁 | 同上 | 產品摘要；不是完整持股 |
+| `https://www.fsitc.com.tw/ViewFile.aspx?path=3&id=182` | 第一金投信基金月報 / 文件下載 | PDF | 可讀，HTTP 200 | PDF 可下載但不適合前端即時 provider | 可能包含揭露資料，但不是每日完整 PCF JSON |
+| `https://www.twse.com.tw/rwd/zh/ETF/productContent?id=00994A&response=json` | TWSE ETF productContent API | JSON | 可讀，HTTP 200，且 `Access-Control-Allow-Origin: *` | 瀏覽器 fetch 較可能可行 | 可確認 ETF 商品規格與 PCF 入口，PCF 欄位指向第一金 FundDetail；不含持股明細 |
+| `https://www.twse.com.tw/zh/products/securities/etf/products/content.html?00994A=` | TWSE ETF product info page | HTML | 可讀，HTTP 200 | 頁面本身不是資料 API | 頁面內 `data-api="/ETF/productContent"`，實際資料 API 為 rwd productContent |
 | `https://www.twse.com.tw/zh/ETFortune/newsDetail/8a8216d69a3d6cf9019b8d7c0d7006a7` | TWSE e添富新上市 ETF 簡介 | HTML | 可讀，HTTP 200 | TWSE 頁可讀；不是持股 provider | 可確認上市代號、發行投信、成分股檔數 30-50 檔等資訊 |
 | `https://www.twse.com.tw/zh/ETFReport/ETFWeekly?date=&response=html` | TWSE ETF 週成交資訊 | HTML | 可讀，HTTP 200，且有 `Access-Control-Allow-Origin: *` | 瀏覽器 fetch 較可能可行 | 只有交易統計，不含持股 |
 
 ### 是否包含可用持股資訊
 
-- full holdings：未發現官方完整持股來源。
-- partial holdings：未發現可用官方來源。
+- full holdings：已在第一金投信 `WebAPI.aspx/Get_hd` 找到可用官方股票持股明細。
+- partial holdings：公開說明書、簡式公開說明書、DM 與 TWSE 商品頁只提供商品資訊或入口。
 - top holdings only：官方產品頁中的「模擬投資組合」屬募集/示意資料，不應作為真實持股 provider。
-- PCF basket：未在第一金官方頁中找到可直接下載的 PCF / basket / holdings 檔。
-- weights：未在官方候選來源找到真實持股權重。
-- shares only：未找到。
-- date：公開說明書與產品頁有文件日期 / 募集日期，但不是持股日期。
+- PCF basket：第一金 FundDetail 的「申購買回清單」tab 以 AJAX 載入 PCF / holdings 區塊。
+- weights：`Get_hd` group `1` 的 `C` 欄為持股權重。
+- shares only：同列 `D` 欄為股數；不是 shares-only，因為 `C` 已提供權重。
+- date：`Get_hd` 回傳 `sdate`，可作為 `asOfDate`。
 
 ### EtfConstituent normalization
 
-- stockSymbol：無官方穩定來源。
-- stockName：無官方穩定來源。
-- weightPercent：無官方穩定來源。
-- asOfDate：無官方持股日期來源。
-- source：可標示官方文件來源，但文件內容不足以轉成 `EtfConstituent`。
+- stockSymbol：`Get_hd` group `1` 的 `A` 欄。
+- stockName：`Get_hd` group `1` 的 `B` 欄。
+- weightPercent：`Get_hd` group `1` 的 `C` 欄。
+- asOfDate：`Get_hd` 的 `sdate`。
+- source：可標示為「第一金投信 00994A 官方申購買回清單」。
 
 ### 風險 notes
 
-- 第一金官方產品頁目前偏產品宣傳與募集資料，不是持股揭露 API。
-- TWSE 新上市簡介揭露「持股檔數 30-50 檔」，但不揭露股票清單或權重。
+- 第一金 FundDetail AJAX 是官方候選來源，但仍需 parser proof-of-concept 驗證欄位穩定性與錯誤處理。
+- `Get_hd` shell 可讀，但未回 CORS header；外部前端若直接跨網域 POST，可能被 preflight 擋住。
+- TWSE productContent 可確認 PCF 入口指向第一金 FundDetail，但不提供持股明細。
 - 第三方網站看似已有持股快照，但不屬官方來源，本專案不得用它們當 provider input。
 - 目前建議：CSV 匯入。
+
+## 00994A 官方來源深度驗證
+
+Step 31 針對第一金投信與 TWSE 官方來源做深度驗證。結論是：00994A 已找到第一金投信官方 FundDetail AJAX 端點，可取得股票代號、股票名稱、持股權重、股數與資料日期，資料結構足以進入 parser proof-of-concept；但該端點沒有回傳 CORS header，純前端 production provider 仍可能需要 serverless proxy。因此本步驟只更新 feasibility 與 capability notes，不加入 parser、fetch button 或儲存 provider 結果流程。
+
+### 測試端點
+
+| candidate source | method | request shape | response type | shell fetch | browser / CORS | holdings result |
+| --- | --- | --- | --- | --- | --- | --- |
+| `https://www.fsitc.com.tw/FundDetail.aspx?ID=182` | GET | query：`ID=182` | HTML | 可讀，HTTP 200，約 5 MB | 無 `Access-Control-Allow-Origin`；頁面同源 AJAX 可用 | HTML 內含 `var pStrFundID = '182'` 與 `Get_hd()` AJAX 程式碼 |
+| `https://www.fsitc.com.tw/WebAPI.aspx/Get_hd` | POST | JSON body：`{"pStrFundID":"182","pStrDate":""}`；headers：`Content-Type: application/json; charset=utf-8`、`X-Requested-With: XMLHttpRequest`、`Referer: ...FundDetail.aspx?ID=182` | JSON wrapper，內層 `d` 為 JSON string | 可讀，HTTP 200 | response 無 `Access-Control-Allow-Origin`；OPTIONS preflight 回 200 但沒有 `Access-Control-Allow-*` | 可取得 42 筆股票列，含 `A` 股票代號、`B` 股票名稱、`C` 持股權重、`D` 股數 |
+| `https://www.fsitc.com.tw/WebAPI.aspx/Get_BuySellA` | POST | JSON body：`{"pStrFundID":"182","pStrDate":""}` | JSON wrapper | 可讀，HTTP 200 | 無 CORS header | 申購買回摘要，例如基金淨資產價值、每單位淨值、基數約當市值等；不是股票明細 |
+| `https://www.fsitc.com.tw/WebAPI.aspx/Get_BuySellB` | POST | 同上 | JSON wrapper | 可讀，HTTP 200 | 無 CORS header | 本次回傳空白 placeholder，不是持股來源 |
+| `https://www.fsitc.com.tw/WebAPI.aspx/Get_BuySellC` | POST | 同上 | JSON wrapper | 可讀，HTTP 200 | 無 CORS header | 本次回傳空白 placeholder，不是持股來源 |
+| `https://www.fsitc.com.tw/ETFList.aspx` | GET | none | HTML | 可讀，HTTP 200 | 無 CORS header | ETF list / navigation；不含完整持股 |
+| `https://www.fsitc.com.tw/act/202512_994AETF/index.html` | GET | none | HTML | 可讀，HTTP 200 | 無 CORS header | campaign page，meta refresh 指向 FundDetail；只連到公開說明書、簡式公開說明書、DM、申購書 |
+| `https://www.fsitc.com.tw/ViewFile.aspx?path=1&id=182` | GET | query：`path=1&id=182` | PDF | 可讀，HTTP 200 | 無 CORS header | 公開說明書，不是每日完整持股 JSON |
+| `https://www.fsitc.com.tw/ViewFile.aspx?path=2&id=182` | GET | query：`path=2&id=182` | PDF | 可讀，HTTP 200 | 無 CORS header | 簡式公開說明書，不是每日完整持股 JSON |
+| `https://www.fsitc.com.tw/ViewFile.aspx?path=3&id=182` | GET | query：`path=3&id=182` | PDF | 可讀，HTTP 200 | 無 CORS header | 官方文件下載，不是目前 parser 首選來源 |
+| `https://www.twse.com.tw/rwd/zh/ETF/productContent?id=00994A&response=json` | GET | query：`id=00994A&response=json` | JSON | 可讀，HTTP 200，`Access-Control-Allow-Origin: *` | 瀏覽器 fetch 較可能可行 | 可確認 ETF 商品規格與 PCF 入口：`https://www.fsitc.com.tw/FundDetail.aspx?ID=182#TabLinkdivEditTab9` |
+
+### `Get_hd` 欄位驗證
+
+`Get_hd` 回傳外層 JSON 形如 `{ "d": "[...]" }`，其中 `d` 是 JSON string。內層列使用 `group` 區分資料表：
+
+- `group: "1"`：股票。欄位 `A` = 股票代號、`B` = 股票名稱、`C` = 持股權重、`D` = 股數。
+- `group: "4"`：其他資產。
+- `group: "5"`：資產權重。
+
+本次 shell 測試結果：
+
+- request：`POST https://www.fsitc.com.tw/WebAPI.aspx/Get_hd`
+- body：`{"pStrFundID":"182","pStrDate":""}`
+- latest returned date：`2026-05-21`
+- stock rows：42 筆。
+- stock weight sum：約 95.60%，表示股票之外仍可能有現金或其他資產。
+- top rows 範例：2330 台積電 16.01%、2383 台光電 6.50%、3037 欣興 4.95%、2345 智邦 4.69%、6669 緯穎 4.60%。
+
+### Normalization 可行性
+
+可以從官方 JSON 組成：
+
+- `etfSymbol`：固定 `00994A`
+- `stockSymbol`：`group === "1"` 的 `A`
+- `stockName`：`group === "1"` 的 `B`
+- `weightPercent`：`group === "1"` 的 `C`
+- `asOfDate`：`sdate`
+- `source`：`第一金投信 00994A 官方申購買回清單`
+
+### CORS 與 production 風險
+
+- `Get_hd` shell 可讀，但 response 沒有 `Access-Control-Allow-Origin`。
+- 帶 `Origin` 的 POST 仍沒有 CORS header。
+- `OPTIONS` preflight 回 HTTP 200，但沒有 `Access-Control-Allow-Methods` / `Access-Control-Allow-Headers`。
+- 因此官方資料來源可能需要 serverless proxy 才能自動化。MVP 仍建議使用 CSV 匯入。
+
+### 支援決策
+
+- support decision：`ready_for_parser_poc`
+- 原因：官方來源已含完整股票明細與可用 `weightPercent`，但尚未做 parser proof-of-concept，且前端跨域自動化可能被 CORS 擋住。
+- MVP current action：仍使用 CSV 匯入。
+- 下一步：實作 00994A parser proof-of-concept；若要接 production provider，再評估 serverless proxy。
 
 ## 總結
 
 | ETF | 決策 | 原因 | 下一步 |
 | --- | --- | --- | --- |
 | 00981A | `needs_serverless_proxy` | 官方 PCF AJAX 已確認含完整股票明細與 `NavRate` 權重，且 parser POC 已可正規化；但瀏覽器 CORS 可能阻擋 | 先用 CSV；下一步評估 serverless proxy |
-| 00994A | `csv_fallback_only` | 官方頁與 TWSE 頁可確認商品資訊，但未找到完整持股權重來源 | 先用 CSV；持續觀察第一金是否新增 PCF / holdings download |
+| 00994A | `ready_for_parser_poc` | 第一金官方 FundDetail AJAX 已確認含完整股票明細與持股權重，但瀏覽器 CORS 可能阻擋 | 先用 CSV；下一步做 00994A parser proof-of-concept，production provider 需評估 proxy |
 
-兩檔目前都不建議實作自動 provider。若未來官方來源確認具備完整持股與權重，下一步再做小型 parser proof-of-concept；若只有 shell 可讀、瀏覽器不可讀，再評估 serverless proxy。
+兩檔目前都不建議直接實作 production frontend provider。00981A 已有 parser POC；00994A 已找到可進 parser POC 的官方來源。若只有 shell 可讀、瀏覽器不可讀，再評估 serverless proxy。
