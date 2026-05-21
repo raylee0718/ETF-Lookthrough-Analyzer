@@ -10,6 +10,7 @@ import {
 } from "../lib/etfHoldingsProviders";
 import { formatPercent } from "../lib/formatters";
 import {
+  getKnownTaiwanEtfProviderCapabilities,
   YUANTA_0050_HOLDINGS_URL,
   YUANTA_0050_PCF_URL,
 } from "../lib/taiwanEtfProviders";
@@ -261,6 +262,10 @@ export default function EtfConstituentsPage({
   );
   const providerCapabilityNotes = useMemo(
     () => getEtfProviderCapabilityNotes(),
+    [],
+  );
+  const knownTaiwanEtfCapabilities = useMemo(
+    () => getKnownTaiwanEtfProviderCapabilities(),
     [],
   );
 
@@ -651,6 +656,46 @@ export default function EtfConstituentsPage({
                 >
                   建立 0050 元大台灣50 provider
                 </button>
+              </div>
+
+              <div className="rounded-lg border border-stone-200 bg-white p-4">
+                <p className="text-sm font-semibold text-slate-950">
+                  台灣 ETF 官方來源能力註記
+                </p>
+                <div className="mt-3 grid gap-3">
+                  {knownTaiwanEtfCapabilities.map((capability) => (
+                    <article
+                      className="rounded-lg border border-stone-200 bg-stone-50 p-4 text-sm leading-6"
+                      key={capability.etfSymbol}
+                    >
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="font-semibold text-slate-950">
+                            {capability.etfSymbol} {capability.etfName}
+                          </p>
+                          <p className="text-slate-600">{capability.issuer}</p>
+                        </div>
+                        <span
+                          className={`w-fit rounded-full px-3 py-1 text-xs font-medium ${
+                            capability.status === "ready_for_provider"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-amber-100 text-amber-800"
+                          }`}
+                        >
+                          {capability.statusLabel}
+                        </span>
+                      </div>
+                      <div className="mt-3 grid gap-1 text-slate-600">
+                        {capability.candidateSourceNotes.map((note) => (
+                          <p key={note}>- {note}</p>
+                        ))}
+                      </div>
+                      <p className="mt-3 font-medium text-slate-700">
+                        {capability.recommendedFallback}
+                      </p>
+                    </article>
+                  ))}
+                </div>
               </div>
 
               <div className="grid gap-3 rounded-lg border border-stone-200 bg-stone-50 p-4 lg:grid-cols-[1fr_1fr_1.4fr]">

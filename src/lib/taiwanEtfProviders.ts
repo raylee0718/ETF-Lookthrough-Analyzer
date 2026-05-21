@@ -9,6 +9,14 @@ export const YUANTA_0050_HOLDINGS_URL =
   "https://www.yuantaetfs.com/product/detail/0050/ratio";
 export const YUANTA_0050_PCF_URL =
   "https://www.yuantaetfs.com/tradeInfo/pcf/0050";
+export const UPAMC_00981A_PCF_URL =
+  "https://www.ezmoney.com.tw/ETF/Transaction/PCF?fundCode=49YTW";
+export const TWSE_00981A_ETFORTUNE_URL =
+  "https://www.twse.com.tw/zh/ETFortune/etfInfo/00981A";
+export const FSITC_00994A_CAMPAIGN_URL =
+  "https://www.fsitc.com.tw/act/202512_994AETF/index.html";
+export const TWSE_00994A_NEWS_URL =
+  "https://www.twse.com.tw/zh/ETFortune/newsDetail/8a8216d69a3d6cf9019b8d7c0d7006a7";
 
 const YUANTA_0050_PCF_API_URL =
   "https://etfapi.yuantaetfs.com/ectranslation/api/bridge?APIType=ETFAPI&CompanyName=YUANTAFUNDS&PageName=%2FtradeInfo%2Fpcf%2F0050&DeviceId=null&FuncId=PCF%2FDaily&AppName=ETF&Device=3&Platform=ETF&ticker=0050&ndate=";
@@ -24,6 +32,17 @@ const YUANTA_0050_BROWSER_CORS_MESSAGE =
 const YUANTA_0050_PCF_WEIGHT_WARNING =
   "已找到官方 PCF 資料，但缺少可直接用於穿透分析的權重欄位，因此暫不自動覆蓋成分股。";
 const COMPLETE_0050_ROW_THRESHOLD = 20;
+
+export type KnownTaiwanEtfProviderCapability = {
+  etfSymbol: string;
+  etfName: string;
+  issuer: string;
+  status: "ready_for_provider" | "investigating";
+  statusLabel: string;
+  candidateSourceNotes: string[];
+  officialCandidateUrls: string[];
+  recommendedFallback: string;
+};
 
 type ParsedYuanta0050Holdings = {
   asOfDate?: string;
@@ -63,6 +82,50 @@ type YuantaPcfResponse = {
     }>;
   };
 };
+
+export function getKnownTaiwanEtfProviderCapabilities(): KnownTaiwanEtfProviderCapability[] {
+  return [
+    {
+      etfSymbol: "0050",
+      etfName: "元大台灣50",
+      issuer: "元大證券投資信託股份有限公司",
+      status: "ready_for_provider",
+      statusLabel: "0050 provider 試作中",
+      officialCandidateUrls: [YUANTA_0050_PCF_URL, YUANTA_0050_HOLDINGS_URL],
+      candidateSourceNotes: [
+        "官方 PCF/Daily JSON 已可解析完整股票權重，但瀏覽器端可能受 CORS 限制。",
+        "若瀏覽器無法抓取，仍建議使用 CSV 匯入或未來評估 serverless proxy。",
+      ],
+      recommendedFallback: "CSV 匯入",
+    },
+    {
+      etfSymbol: "00981A",
+      etfName: "主動統一台股增長",
+      issuer: "統一證券投資信託股份有限公司",
+      status: "investigating",
+      statusLabel: "官方來源盤點中",
+      officialCandidateUrls: [UPAMC_00981A_PCF_URL, TWSE_00981A_ETFORTUNE_URL],
+      candidateSourceNotes: [
+        "統一投信官方 PCF 頁可由 shell 讀取，但尚未確認可穩定取得完整股票權重欄位。",
+        "TWSE e添富可確認 ETF 基本資料，未提供可直接轉成穿透分析的完整持股權重。",
+      ],
+      recommendedFallback: "目前請先使用 CSV 匯入",
+    },
+    {
+      etfSymbol: "00994A",
+      etfName: "主動第一金台股優",
+      issuer: "第一金證券投資信託股份有限公司",
+      status: "investigating",
+      statusLabel: "官方來源盤點中",
+      officialCandidateUrls: [FSITC_00994A_CAMPAIGN_URL, TWSE_00994A_NEWS_URL],
+      candidateSourceNotes: [
+        "第一金投信官方頁與公開說明書可讀，但目前未發現完整持股權重下載檔。",
+        "TWSE e添富新上市資訊與週報可確認商品與交易資料，未揭露完整持股權重。",
+      ],
+      recommendedFallback: "目前請先使用 CSV 匯入",
+    },
+  ];
+}
 
 const formatSlashDate = (value: string) => value.replace(/\//g, "-");
 
