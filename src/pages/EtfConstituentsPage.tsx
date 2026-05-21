@@ -2,8 +2,19 @@ import { ChangeEvent, useMemo, useState } from "react";
 import SectionCard from "../components/SectionCard";
 import StatCard from "../components/StatCard";
 import type { EtfConstituentInput } from "../hooks/useEtfConstituents";
+import { useEtfProviderConfigs } from "../hooks/useEtfProviderConfigs";
 import { getLatestConstituentDataStatuses } from "../lib/constituentVersions";
+import {
+  fetchEtfHoldingsByConfig,
+  getEtfProviderCapabilityNotes,
+} from "../lib/etfHoldingsProviders";
 import { formatPercent } from "../lib/formatters";
+import type {
+  EtfHoldingsFetchResult,
+  EtfHoldingsProviderStatus,
+  EtfHoldingsProviderType,
+  EtfProviderConfig,
+} from "../types/etfProvider";
 import type { EtfConstituent, PortfolioHolding } from "../types/portfolio";
 
 const sourceOptions = ["投信官網", "公開說明書", "手動整理", "其他"];
@@ -23,6 +34,36 @@ type EtfConstituentsPageProps = {
   ) => void;
   resetConstituents: () => void;
 };
+
+const emptyProviderForm: EtfProviderConfig = {
+  etfSymbol: "",
+  providerType: "csv",
+  sourceUrl: "",
+  notes: "",
+  enabled: true,
+};
+
+const providerTypeOptions: {
+  value: EtfHoldingsProviderType;
+  label: string;
+}[] = [
+  { value: "manual", label: "手動" },
+  { value: "csv", label: "CSV" },
+  { value: "sitca", label: "投信投顧公會" },
+  { value: "issuer", label: "發行商" },
+  { value: "custom", label: "自訂" },
+];
+
+const providerStatusLabels: Record<EtfHoldingsProviderStatus, string> = {
+  supported: "支援",
+  partial: "部分支援",
+  unsupported: "尚未支援",
+  failed: "測試失敗",
+};
+
+const getProviderTypeLabel = (providerType: EtfHoldingsProviderType) =>
+  providerTypeOptions.find((option) => option.value === providerType)?.label ??
+  providerType;
 
 type ParseResult = {
   records: EtfConstituentInput[];
@@ -97,6 +138,17 @@ export default function EtfConstituentsPage({
   );
   const [parseErrors, setParseErrors] = useState<string[]>([]);
   const [selectedEtfSymbol, setSelectedEtfSymbol] = useState("");
+  const {
+    providerConfigs,
+    upsertProviderConfig,
+    deleteProviderConfig,
+  } = useEtfProviderConfigs();
+  const [providerForm, setProviderForm] =
+    useState<EtfProviderConfig>(emptyProviderForm);
+  const [providerTestResults, setProviderTestResults] = useState<
+    Record<string, EtfHoldingsFetchResult>
+  >({});
+  const [testingProviderSymbol, setTestingProviderSymbol] = useState("");
 
   const normalizedEtfSymbol = etfSymbol.trim().toUpperCase();
 
@@ -114,6 +166,10 @@ export default function EtfConstituentsPage({
   const latestDataStatuses = useMemo(
     () => getLatestConstituentDataStatuses(constituents),
     [constituents],
+  );
+  const providerCapabilityNotes = useMemo(
+    () => getEtfProviderCapabilityNotes(),
+    [],
   );
 
   const filteredConstituents = useMemo(() => {
@@ -327,6 +383,48 @@ export default function EtfConstituentsPage({
     }
   };
 
+  const handleSaveProviderConfig = () => {
+    const normalizedProviderForm = {
+      ...providerForm,
+      etfSymbol: providerForm.etfSymbol.trim().toUpperCase(),
+    };
+
+    if (!normalizedProviderForm.etfSymbol) {
+      return;
+    }
+
+    upsertProviderConfig(normalizedProviderForm);
+    setProviderForm(emptyProviderForm);
+  };
+
+  const handleEditProviderConfig = (config: EtfProviderConfig) => {
+    setProviderForm(config);
+  };
+
+  const handleDeleteProviderConfig = (config: EtfProviderConfig) => {
+    const confirmed = window.confirm(
+      `確定要刪除 ${config.etfSymbol} 的 ETF 持股來源設定嗎？`,
+    );
+
+    if (confirmed) {
+      deleteProviderConfig(config.etfSymbol);
+    }
+  };
+
+  const handleTestProviderConfig = async (config: EtfProviderConfig) => {
+    setTestingProviderSymbol(config.etfSymbol);
+
+    try {
+      const result = await fetchEtfHoldingsByConfig(config);
+      setProviderTestResults((currentResults) => ({
+        ...currentResults,
+        [config.etfSymbol]: result,
+      }));
+    } finally {
+      setTestingProviderSymbol("");
+    }
+  };
+
   return (
     <main className="min-h-screen bg-stone-100 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
@@ -382,6 +480,231 @@ export default function EtfConstituentsPage({
             helperText={selectedEtfSymbol || "尚未選取"}
           />
         </section>
+
+        <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+          <SectionCard
+            title="ETF 持股自動來源"
+            description="設定每檔 ETF 可能使用的官方來源；目前先做可行性測試與設定保存。"
+          >
+            <div className="grid gap-5">
+              <p className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-950">
+                ETF 持股自動抓取會依資料來源而異。若官方資料無法從瀏覽器穩定取得，仍建議使用 CSV 匯入作為備援。
+              </p>
+
+              <div className="grid gap-3 rounded-lg border border-stone-200 bg-stone-50 p-4 lg:grid-cols-[1fr_1fr_1.4fr]">
+                <label className="grid gap-2 text-sm font-medium text-slate-700">
+                  ETF 代號
+                  <input
+                    className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    list="etf-symbol-suggestions"
+                    onChange={(event) =>
+                      setProviderForm((currentForm) => ({
+                        ...currentForm,
+                        etfSymbol: event.target.value,
+                      }))
+                    }
+                    placeholder="例如 0050"
+                    value={providerForm.etfSymbol}
+                  />
+                </label>
+
+                <label className="grid gap-2 text-sm font-medium text-slate-700">
+                  provider type
+                  <select
+                    className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    onChange={(event) =>
+                      setProviderForm((currentForm) => ({
+                        ...currentForm,
+                        providerType: event.target.value as EtfHoldingsProviderType,
+                      }))
+                    }
+                    value={providerForm.providerType}
+                  >
+                    {providerTypeOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="grid gap-2 text-sm font-medium text-slate-700">
+                  source URL
+                  <input
+                    className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    onChange={(event) =>
+                      setProviderForm((currentForm) => ({
+                        ...currentForm,
+                        sourceUrl: event.target.value,
+                      }))
+                    }
+                    placeholder="官方資料來源 URL，可留空"
+                    value={providerForm.sourceUrl ?? ""}
+                  />
+                </label>
+
+                <label className="grid gap-2 text-sm font-medium text-slate-700 lg:col-span-2">
+                  notes
+                  <input
+                    className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    onChange={(event) =>
+                      setProviderForm((currentForm) => ({
+                        ...currentForm,
+                        notes: event.target.value,
+                      }))
+                    }
+                    placeholder="例如：官方網站只提供月資料"
+                    value={providerForm.notes ?? ""}
+                  />
+                </label>
+
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <input
+                    checked={providerForm.enabled}
+                    className="h-4 w-4 rounded border-stone-300 text-blue-700 focus:ring-blue-500"
+                    onChange={(event) =>
+                      setProviderForm((currentForm) => ({
+                        ...currentForm,
+                        enabled: event.target.checked,
+                      }))
+                    }
+                    type="checkbox"
+                  />
+                  enabled
+                </label>
+
+                <div className="flex flex-col gap-2 sm:flex-row lg:col-span-3">
+                  <button
+                    className="rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                    disabled={!providerForm.etfSymbol.trim()}
+                    onClick={handleSaveProviderConfig}
+                    type="button"
+                  >
+                    儲存來源設定
+                  </button>
+                  <button
+                    className="rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-stone-50"
+                    onClick={() => setProviderForm(emptyProviderForm)}
+                    type="button"
+                  >
+                    清空表單
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-stone-200 bg-white p-4">
+                <p className="text-sm font-semibold text-slate-950">可行性說明</p>
+                <ul className="mt-2 grid gap-1 text-sm leading-6 text-slate-600">
+                  {providerCapabilityNotes.map((note) => (
+                    <li key={note}>- {note}</li>
+                  ))}
+                </ul>
+              </div>
+
+              {providerConfigs.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-stone-300 bg-stone-50 p-4 text-sm text-slate-500">
+                  尚未設定 ETF 持股自動來源。手動與 CSV 匯入仍是目前可靠備援。
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[980px] text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-stone-200 text-slate-500">
+                        <th className="pb-3 font-medium">ETF 代號</th>
+                        <th className="pb-3 font-medium">provider type</th>
+                        <th className="pb-3 font-medium">source URL</th>
+                        <th className="pb-3 font-medium">enabled</th>
+                        <th className="pb-3 font-medium">notes</th>
+                        <th className="pb-3 font-medium">status / capability note</th>
+                        <th className="pb-3 text-right font-medium">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {providerConfigs.map((config) => {
+                        const testResult = providerTestResults[config.etfSymbol];
+
+                        return (
+                          <tr
+                            className="border-b border-stone-100 align-top last:border-0"
+                            key={config.etfSymbol}
+                          >
+                            <td className="py-4 font-semibold text-slate-950">
+                              {config.etfSymbol}
+                            </td>
+                            <td className="py-4 text-slate-600">
+                              {getProviderTypeLabel(config.providerType)}
+                            </td>
+                            <td className="max-w-xs break-words py-4 text-slate-600">
+                              {config.sourceUrl ?? "-"}
+                            </td>
+                            <td className="py-4 text-slate-600">
+                              {config.enabled ? "是" : "否"}
+                            </td>
+                            <td className="max-w-xs break-words py-4 text-slate-600">
+                              {config.notes ?? "-"}
+                            </td>
+                            <td className="py-4 text-slate-600">
+                              {testResult ? (
+                                <div className="grid gap-1">
+                                  <p className="font-medium text-slate-950">
+                                    {providerStatusLabels[testResult.status]}
+                                  </p>
+                                  {testResult.constituents.length > 0 ? (
+                                    <p>
+                                      回傳 {testResult.constituents.length} 筆成分股；尚未自動覆蓋既有資料。
+                                    </p>
+                                  ) : null}
+                                  {testResult.warnings.map((warning) => (
+                                    <p key={warning}>{warning}</p>
+                                  ))}
+                                  {testResult.errors.map((error) => (
+                                    <p className="text-red-700" key={error}>
+                                      {error}
+                                    </p>
+                                  ))}
+                                </div>
+                              ) : (
+                                "尚未測試"
+                              )}
+                            </td>
+                            <td className="py-4">
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                                  disabled={testingProviderSymbol === config.etfSymbol}
+                                  onClick={() => handleTestProviderConfig(config)}
+                                  type="button"
+                                >
+                                  {testingProviderSymbol === config.etfSymbol
+                                    ? "測試中..."
+                                    : "測試抓取"}
+                                </button>
+                                <button
+                                  className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-stone-50"
+                                  onClick={() => handleEditProviderConfig(config)}
+                                  type="button"
+                                >
+                                  編輯
+                                </button>
+                                <button
+                                  className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100"
+                                  onClick={() => handleDeleteProviderConfig(config)}
+                                  type="button"
+                                >
+                                  刪除
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </SectionCard>
+        </div>
 
         <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
           <div className="flex flex-col gap-6">
@@ -723,4 +1046,3 @@ export default function EtfConstituentsPage({
     </main>
   );
 }
-
