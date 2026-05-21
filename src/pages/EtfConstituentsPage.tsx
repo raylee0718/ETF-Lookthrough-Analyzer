@@ -9,10 +9,14 @@ import {
   getEtfProviderCapabilityNotes,
 } from "../lib/etfHoldingsProviders";
 import { formatPercent } from "../lib/formatters";
-import { YUANTA_0050_HOLDINGS_URL } from "../lib/taiwanEtfProviders";
+import {
+  YUANTA_0050_HOLDINGS_URL,
+  YUANTA_0050_PCF_URL,
+} from "../lib/taiwanEtfProviders";
 import type {
   EtfHoldingsFetchResult,
   EtfHoldingsProviderStatus,
+  EtfHoldingsProviderSupportLevel,
   EtfHoldingsProviderType,
   EtfProviderConfig,
 } from "../types/etfProvider";
@@ -62,6 +66,16 @@ const providerStatusLabels: Record<EtfHoldingsProviderStatus, string> = {
   failed: "測試失敗",
 };
 
+const providerSupportLevelLabels: Record<
+  EtfHoldingsProviderSupportLevel,
+  string
+> = {
+  full: "full",
+  partial: "partial",
+  blocked_by_cors: "blocked by CORS",
+  unsupported: "unsupported",
+};
+
 const getProviderTypeLabel = (providerType: EtfHoldingsProviderType) =>
   providerTypeOptions.find((option) => option.value === providerType)?.label ??
   providerType;
@@ -70,6 +84,15 @@ const getProviderResultWeightTotal = (result: EtfHoldingsFetchResult) =>
   result.constituents.reduce(
     (sum, constituent) => sum + constituent.weightPercent,
     0,
+  );
+
+const isProviderResultSafeToSave = (result: EtfHoldingsFetchResult) =>
+  result.safeToSave === true &&
+  result.constituents.length >= 20 &&
+  result.constituents.every(
+    (constituent) =>
+      Number.isFinite(constituent.weightPercent) &&
+      constituent.weightPercent > 0,
   );
 
 type ParseResult = {
@@ -439,8 +462,8 @@ export default function EtfConstituentsPage({
     const presetConfig: EtfProviderConfig = {
       etfSymbol: "0050",
       providerType: "issuer",
-      sourceUrl: YUANTA_0050_HOLDINGS_URL,
-      notes: "0050 provider prototype",
+      sourceUrl: YUANTA_0050_PCF_URL,
+      notes: "0050 provider prototype；優先測試官方 PCF，ratio page 作為備援診斷。",
       enabled: true,
     };
 
@@ -454,7 +477,7 @@ export default function EtfConstituentsPage({
   };
 
   const handleSaveProviderResult = (result: EtfHoldingsFetchResult) => {
-    if (result.constituents.length === 0) {
+    if (!isProviderResultSafeToSave(result)) {
       return;
     }
 
@@ -550,8 +573,12 @@ export default function EtfConstituentsPage({
               <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-950">
                 <p className="font-semibold">目前正在試作 0050 provider。</p>
                 <p>
-                  若自動來源抓取失敗，請使用 CSV 匯入。CSV 匯入仍是目前最穩定的備援流程。
+                  會優先測試官方 PCF 申購買回清單，再以持股比重頁作為診斷備援。若自動來源抓取失敗，請使用 CSV 匯入。CSV 匯入仍是目前最穩定的備援流程。
                 </p>
+                <div className="mt-2 grid gap-1 text-xs">
+                  <p>PCF page：{YUANTA_0050_PCF_URL}</p>
+                  <p>ratio page：{YUANTA_0050_HOLDINGS_URL}</p>
+                </div>
                 <button
                   className="mt-3 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800"
                   onClick={handleCreateYuanta0050Provider}
@@ -719,6 +746,53 @@ export default function EtfConstituentsPage({
                                   <p className="font-medium text-slate-950">
                                     {providerStatusLabels[testResult.status]}
                                   </p>
+                                  <p>
+                                    支援等級：
+                                    {testResult.supportLevel
+                                      ? providerSupportLevelLabels[
+                                          testResult.supportLevel
+                                        ]
+                                      : "-"}
+                                  </p>
+                                  <p>
+                                    可安全儲存：
+                                    {isProviderResultSafeToSave(testResult)
+                                      ? "是"
+                                      : "否，需有有效權重且至少 20 筆 0050 成分股"}
+                                  </p>
+                                  {testResult.attemptedSources &&
+                                  testResult.attemptedSources.length > 0 ? (
+                                    <div className="mt-2 rounded-lg border border-stone-200 bg-white p-3">
+                                      <p className="font-medium text-slate-700">
+                                        嘗試來源
+                                      </p>
+                                      <div className="mt-2 grid gap-2">
+                                        {testResult.attemptedSources.map(
+                                          (source) => (
+                                            <div
+                                              className="break-words"
+                                              key={`${source.label}-${source.url}`}
+                                            >
+                                              <p>
+                                                {source.label}：
+                                                {
+                                                  providerSupportLevelLabels[
+                                                    source.status
+                                                  ]
+                                                }
+                                              </p>
+                                              <p className="text-xs text-slate-500">
+                                                {source.url}
+                                              </p>
+                                              {source.notes ? (
+                                                <p>{source.notes}</p>
+                                              ) : null}
+                                            </div>
+                                          ),
+                                        )}
+                                      </div>
+                                    </div>
+                                  ) : null}
                                   {testResult.constituents.length > 0 ? (
                                     <p>
                                       回傳 {testResult.constituents.length} 筆成分股；尚未自動覆蓋既有資料。
@@ -778,15 +852,22 @@ export default function EtfConstituentsPage({
                                           </tbody>
                                         </table>
                                       </div>
-                                      <button
-                                        className="mt-3 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800"
-                                        onClick={() =>
-                                          handleSaveProviderResult(testResult)
-                                        }
-                                        type="button"
-                                      >
-                                        儲存此 provider 結果
-                                      </button>
+                                      {isProviderResultSafeToSave(testResult) ? (
+                                        <button
+                                          className="mt-3 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800"
+                                          onClick={() =>
+                                            handleSaveProviderResult(testResult)
+                                          }
+                                          type="button"
+                                        >
+                                          儲存此 provider 結果
+                                        </button>
+                                      ) : (
+                                        <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
+                                          目前結果未達 0050 儲存門檻；若少於 20
+                                          筆或缺少有效權重，請使用 CSV 匯入完整成分股。
+                                        </p>
+                                      )}
                                     </div>
                                   ) : null}
                                 </div>

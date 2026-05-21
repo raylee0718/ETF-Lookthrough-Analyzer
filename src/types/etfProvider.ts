@@ -13,6 +13,19 @@ export type EtfHoldingsProviderStatus =
   | "unsupported"
   | "failed";
 
+export type EtfHoldingsProviderSupportLevel =
+  | "full"
+  | "partial"
+  | "blocked_by_cors"
+  | "unsupported";
+
+export type EtfHoldingsAttemptedSource = {
+  label: string;
+  url: string;
+  status: EtfHoldingsProviderSupportLevel;
+  notes?: string;
+};
+
 export type EtfHoldingsFetchResult = {
   etfSymbol: string;
   asOfDate?: string;
@@ -23,6 +36,9 @@ export type EtfHoldingsFetchResult = {
   warnings: string[];
   errors: string[];
   fetchedAt: string;
+  attemptedSources?: EtfHoldingsAttemptedSource[];
+  supportLevel?: EtfHoldingsProviderSupportLevel;
+  safeToSave?: boolean;
 };
 
 export type EtfProviderConfig = {
