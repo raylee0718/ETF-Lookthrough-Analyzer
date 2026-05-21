@@ -8,6 +8,8 @@ import { formatCurrency, formatPercent } from "../lib/format";
 import {
   calculateIndustryExposure,
   calculateLookthroughExposure,
+  calculateUnmappedEtfHoldings,
+  findConcentrationWarnings,
 } from "../lib/lookthrough";
 import { getPortfolioHoldingsForAnalysis } from "../lib/portfolioSource";
 import type { EtfConstituent, PortfolioHolding } from "../types/portfolio";
@@ -50,6 +52,14 @@ export default function LookthroughPage({
   const industryExposures = useMemo(
     () => calculateIndustryExposure(lookthroughExposures),
     [lookthroughExposures],
+  );
+  const concentrationWarnings = useMemo(
+    () => findConcentrationWarnings(lookthroughExposures),
+    [lookthroughExposures],
+  );
+  const unmappedEtfHoldings = useMemo(
+    () => calculateUnmappedEtfHoldings(holdingsForAnalysis, latestConstituents),
+    [holdingsForAnalysis, latestConstituents],
   );
 
   const hasConstituents = latestConstituents.length > 0;
@@ -124,6 +134,37 @@ export default function LookthroughPage({
           title="完整穿透曝險表"
           description="來源欄會顯示直接持股或各 ETF 造成的曝險金額。"
         >
+          {concentrationWarnings.length > 0 ? (
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+              <p className="font-semibold">集中度提醒</p>
+              <div className="mt-2 grid gap-1">
+                {concentrationWarnings.map((warning) => (
+                  <p key={warning.stockSymbol}>
+                    {warning.stockSymbol} {warning.stockName} 佔投組{" "}
+                    {formatPercent(warning.portfolioWeight)}：
+                    {warning.message}
+                  </p>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {unmappedEtfHoldings.length > 0 ? (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800">
+              <p className="font-semibold">尚未對應 ETF 成分股</p>
+              <p className="mt-2">
+                下列 ETF 目前沒有成分股資料，會暫時被當成單一標的計入穿透分析：
+              </p>
+              <div className="mt-2 grid gap-1">
+                {unmappedEtfHoldings.map((holding) => (
+                  <p key={holding.id}>
+                    {holding.symbol} {holding.name}
+                  </p>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] text-left text-sm">
               <thead>

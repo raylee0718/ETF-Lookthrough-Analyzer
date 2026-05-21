@@ -347,3 +347,23 @@ git add PROJECT_HANDOFF.md README.md docs/
 git commit -m "Update handoff before 0050 provider stabilization"
 git push
 ```
+
+## 19. MVP 聚焦模式
+
+Step 26 後，App 主要導覽改為 MVP 流程：
+
+1. 設定我的持股 -> `HoldingsPage`
+2. ETF 成分股 -> `EtfConstituentsPage`
+3. 穿透分析 -> `LookthroughPage`
+
+進階功能沒有刪除，仍保留在程式碼中，並可從 App shell 的「進階工具」展開：
+
+- 儀表板 -> `Dashboard`
+- ETF 重疊 -> `OverlapPage`
+- 交易紀錄 -> `TransactionsPage`
+- 價格表 -> `PricesPage`
+- 備份匯出 -> `BackupPage`
+
+MVP 的核心使用方式是：手動輸入目前 ETF / 股票持股市值，匯入或測試取得 ETF 成分股，再到穿透分析查看底層台股曝險、投組佔比、來源拆解、產業曝險、集中度提醒與未對應 ETF 提醒。
+
+交易紀錄、價格自動化、備份、Dashboard 與 provider diagnostics 屬於進階能力，不是 MVP 必要條件。不要刪除這些功能，但也不要讓它們主導主要流程。本專案仍應維持 personal ETF lookthrough analyzer 定位，不應變成 active ETF research platform。
