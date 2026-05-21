@@ -62,7 +62,13 @@ export default function LookthroughPage({
     [holdingsForAnalysis, latestConstituents],
   );
 
-  const hasConstituents = latestConstituents.length > 0;
+  const directStockHoldings = useMemo(
+    () =>
+      holdingsForAnalysis.filter(
+        (holding) => !holding.category.toUpperCase().includes("ETF"),
+      ),
+    [holdingsForAnalysis],
+  );
 
   return (
     <main className="min-h-screen bg-stone-100 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
@@ -82,6 +88,7 @@ export default function LookthroughPage({
         <section className="rounded-lg border border-blue-200 bg-blue-50 p-5 text-blue-950">
           <h2 className="text-base font-semibold">{portfolioSource.modeLabel}</h2>
           <div className="mt-2 grid gap-2 text-sm leading-6">
+            <p>第三步：查看穿透後實際持有的底層股票、產業曝險與集中度提醒。</p>
             {portfolioSource.dataQualityNotes.map((note) => (
               <p key={note}>{note}</p>
             ))}
@@ -95,7 +102,7 @@ export default function LookthroughPage({
         {holdingsForAnalysis.length === 0 &&
         settings.portfolioDataSourceMode === "manual" ? (
           <section className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-amber-950">
-            尚未建立手動持股資料，請先到「我的持股」新增持股。
+            尚未建立持股資料。請先到「設定我的持股」新增 ETF 或個股。
           </section>
         ) : null}
 
@@ -106,17 +113,23 @@ export default function LookthroughPage({
           </section>
         ) : null}
 
-        {holdingsForAnalysis.length > 0 && !hasConstituents ? (
+        {unmappedEtfHoldings.length > 0 ? (
           <section className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-amber-950">
-            目前尚未匯入 ETF 成分股資料，ETF 會暫時被視為單一持股。
+            部分 ETF 尚未匯入成分股，因此會暫時被視為單一持股。若要看到真正的底層股票曝險，請到「ETF 成分股」匯入資料。
+          </section>
+        ) : null}
+
+        {directStockHoldings.length > 0 ? (
+          <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-950">
+            個股會直接計入穿透曝險，不需要成分股資料。
           </section>
         ) : null}
 
         <section className="grid gap-4 sm:grid-cols-3">
           <StatCard
-            label="穿透後股票"
+            label="底層股票數"
             value={`${lookthroughExposures.length} 檔`}
-            helperText="已聚合同股票代號"
+            helperText="穿透後已聚合同股票代號"
           />
           <StatCard
             label="產業數"
@@ -131,8 +144,8 @@ export default function LookthroughPage({
         </section>
 
         <SectionCard
-          title="完整穿透曝險表"
-          description="來源欄會顯示直接持股或各 ETF 造成的曝險金額。"
+          title="底層股票曝險"
+          description="依投資組合佔比由高到低排列。來源欄會顯示直接持股或各 ETF 造成的曝險金額。"
         >
           {concentrationWarnings.length > 0 ? (
             <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">

@@ -139,7 +139,12 @@ export default function HoldingsPage({
         </header>
 
         <section className="rounded-lg border border-blue-200 bg-blue-50 p-5 text-blue-950">
-          這裡的資料會用於「手動持股模式」。如果你改用「交易紀錄模式」，系統會改以交易紀錄與價格表估算市值。
+          <p className="text-sm leading-6">
+            第一步：輸入你目前持有的 ETF 或個股。MVP 模式下只需要填目前市值，不需要輸入完整交易紀錄。
+          </p>
+          <p className="mt-2 text-sm leading-6">
+            這裡的資料會用於「手動持股模式」。如果你改用「交易紀錄模式」，系統會改以交易紀錄與價格表估算市值。
+          </p>
         </section>
 
         <section className="grid gap-4 sm:grid-cols-2">

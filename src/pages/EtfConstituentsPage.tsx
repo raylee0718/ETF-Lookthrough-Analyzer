@@ -24,10 +24,10 @@ import type { EtfConstituent, PortfolioHolding } from "../types/portfolio";
 
 const sourceOptions = ["投信官網", "公開說明書", "手動整理", "其他"];
 
-const samplePasteText = `成分股代號,成分股名稱,權重,產業
-2330,台積電,52.3,半導體
-2317,鴻海,4.1,電子
-2454,聯發科,3.8,半導體`;
+const samplePasteText = `股票代號,股票名稱,權重,產業
+2330,台積電,60.61,半導體
+2317,鴻海,3.50,電子
+2454,聯發科,3.20,半導體`;
 
 type EtfConstituentsPageProps = {
   holdings: PortfolioHolding[];
@@ -199,9 +199,16 @@ const splitDelimitedLine = (line: string, delimiter: "," | "\t") => {
 
 const isHeaderRow = (cells: string[]) =>
   cells.some((cell) =>
-    ["成分股代號", "成分股名稱", "權重", "產業", "stockSymbol", "stockName"].some(
-      (keyword) => cell.includes(keyword),
-    ),
+    [
+      "成分股代號",
+      "成分股名稱",
+      "股票代號",
+      "股票名稱",
+      "權重",
+      "產業",
+      "stockSymbol",
+      "stockName",
+    ].some((keyword) => cell.includes(keyword)),
   );
 
 const normalizeWeight = (value: string) =>
@@ -583,6 +590,9 @@ export default function EtfConstituentsPage({
 
         <section className="rounded-lg border border-blue-200 bg-blue-50 p-5 text-blue-950">
           <h2 className="text-base font-semibold">資料狀態說明</h2>
+          <p className="mt-2 text-sm leading-6">
+            第二步：匯入 ETF 成分股資料。若 0050 provider 無法自動抓取，可使用 CSV / 貼上表格匯入。
+          </p>
           <p className="mt-2 text-sm leading-6">
             此工具保留每檔 ETF 目前儲存的成分股資料；重新匯入同一檔 ETF 會取代該 ETF 的現有清單。穿透分析預設使用每檔 ETF 最新資料日期的成分股。
           </p>
@@ -1168,6 +1178,14 @@ export default function EtfConstituentsPage({
               description="支援逗號分隔與從 Excel 複製的 tab 分隔資料。解析後不會立即儲存。"
             >
               <div className="grid gap-4">
+                <div className="rounded-lg border border-stone-200 bg-stone-50 p-4 text-sm leading-6 text-slate-700">
+                  <p className="font-semibold text-slate-900">
+                    範例格式，非最新真實持股
+                  </p>
+                  <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-md bg-white p-3 font-mono text-xs leading-5 text-slate-700">
+                    {samplePasteText}
+                  </pre>
+                </div>
                 <textarea
                   className="min-h-64 rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm leading-6 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   onChange={(event) => setPasteText(event.target.value)}
