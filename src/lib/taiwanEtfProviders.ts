@@ -27,6 +27,7 @@ const YUANTA_0050_PCF_API_URL =
 
 const YUANTA_0050_RATIO_SOURCE_LABEL = "元大投信 0050 持股比重頁";
 const YUANTA_0050_PCF_SOURCE_LABEL = "元大投信 0050 申購買回清單";
+const UPAMC_00981A_PCF_SOURCE_LABEL = "統一投信 00981A 官方 PCF";
 const YUANTA_0050_FALLBACK_MESSAGE =
   "0050 官方資料來源目前無法由瀏覽器直接穩定取得，請先使用 CSV 匯入。";
 const YUANTA_0050_CORS_MESSAGE =
@@ -54,10 +55,46 @@ type ParsedYuanta0050Holdings = {
   warnings: string[];
 };
 
+export type UniPresident00981APcfParserContext = {
+  etfSymbol?: "00981A";
+  source?: string;
+  asOfDate?: string;
+};
+
+export type ParsedUniPresident00981APcfResponse = {
+  asOfDate?: string;
+  source: string;
+  constituents: EtfConstituent[];
+  warnings: string[];
+  errors: string[];
+};
+
 type ParsedHoldingRow = {
   stockSymbol: string;
   stockName: string;
   weightPercent: number;
+};
+
+type UniPresidentPcfDetail = {
+  DetailCode?: unknown;
+  DetailName?: unknown;
+  NavRate?: unknown;
+  TranDate?: unknown;
+  Share?: unknown;
+  Amount?: unknown;
+};
+
+type UniPresidentPcfAsset = {
+  AssetCode?: unknown;
+  AssetName?: unknown;
+  Details?: unknown;
+};
+
+type UniPresidentPcfResponse = {
+  pcf?: unknown;
+  fund?: unknown;
+  asset?: unknown;
+  Data?: unknown;
 };
 
 type YuantaPcfStockWeight = {
@@ -116,9 +153,10 @@ export function getKnownTaiwanEtfProviderCapabilities(): KnownTaiwanEtfProviderC
       ],
       candidateSourceNotes: [
         "已找到統一投信官方 PCF AJAX：POST /ETF/Transaction/GetPCF，回傳股票代號、名稱、股數、金額與 NavRate 持股權重。",
-        "官方 JSON 端點未回 CORS header，前端瀏覽器自動化可能需要 serverless proxy；本步驟暫不接 provider。",
+        "00981A 官方 PCF JSON parser POC 已可將 asset[AssetCode=ST].Details 轉成 EtfConstituent[]。",
+        "官方 JSON 端點未回 CORS header，前端瀏覽器自動化可能需要 serverless proxy；本步驟仍不接 production provider。",
       ],
-      recommendedFallback: "目前仍建議 CSV 匯入；若官方來源確認可由部署環境穩定讀取，下一步才加入 provider。",
+      recommendedFallback: "目前仍建議 CSV 匯入；下一步是評估 serverless proxy 或 parser proof-of-concept 的部署方式。",
     },
     {
       etfSymbol: "00994A",
@@ -143,6 +181,30 @@ const formatCompactDate = (value: string) => {
   return match ? `${match[1]}-${match[2]}-${match[3]}` : undefined;
 };
 
+const normalizeDateString = (value: unknown) => {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const normalized = value.trim();
+  const isoDate = normalized.match(/^(\d{4})[-/](\d{2})[-/](\d{2})/);
+  if (isoDate) {
+    return `${isoDate[1]}-${isoDate[2]}-${isoDate[3]}`;
+  }
+
+  const compactDate = formatCompactDate(normalized);
+  if (compactDate) {
+    return compactDate;
+  }
+
+  const minguoDate = normalized.match(/^(\d{3})\/(\d{2})\/(\d{2})$/);
+  if (minguoDate) {
+    return `${Number(minguoDate[1]) + 1911}-${minguoDate[2]}-${minguoDate[3]}`;
+  }
+
+  return undefined;
+};
+
 const stripTags = (value: string) =>
   value
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
@@ -154,7 +216,10 @@ const stripTags = (value: string) =>
     .trim();
 
 const normalizeStockSymbol = (value: string) => {
-  const symbol = value.trim().toUpperCase().replace(/\.TW$/, "");
+  const symbol = value
+    .trim()
+    .toUpperCase()
+    .replace(/\.(TW|TWO|TT|TPE)$/i, "");
   const match = symbol.match(/^\d{4,6}[A-Z]?/);
   return match?.[0] ?? "";
 };
@@ -193,6 +258,126 @@ const hasValidWeights = (constituents: EtfConstituent[]) =>
 const isSafeToSave0050Result = (constituents: EtfConstituent[]) =>
   constituents.length >= COMPLETE_0050_ROW_THRESHOLD &&
   hasValidWeights(constituents);
+
+const parseJsonLikeResponse = (raw: unknown): { data?: unknown; error?: string } => {
+  if (typeof raw === "string") {
+    try {
+      return { data: JSON.parse(raw) };
+    } catch {
+      return { error: "00981A PCF 回應不是可解析的 JSON。" };
+    }
+  }
+
+  return { data: raw };
+};
+
+const getUniPresident00981AStockDetails = (
+  data: UniPresidentPcfResponse,
+): UniPresidentPcfDetail[] => {
+  const assets = Array.isArray(data.asset) ? (data.asset as UniPresidentPcfAsset[]) : [];
+  const stockAsset = assets.find((asset) => String(asset.AssetCode ?? "") === "ST");
+
+  return Array.isArray(stockAsset?.Details)
+    ? (stockAsset.Details as UniPresidentPcfDetail[])
+    : [];
+};
+
+const getUniPresident00981AAsOfDate = (
+  data: UniPresidentPcfResponse,
+  stockDetails: UniPresidentPcfDetail[],
+  contextDate?: string,
+) => {
+  const contextAsOfDate = normalizeDateString(contextDate);
+  if (contextAsOfDate) {
+    return contextAsOfDate;
+  }
+
+  const firstDetailDate = stockDetails
+    .map((row) => normalizeDateString(row.TranDate))
+    .find(Boolean);
+  if (firstDetailDate) {
+    return firstDetailDate;
+  }
+
+  const pcfRows = Array.isArray(data.pcf) ? (data.pcf as Array<Record<string, unknown>>) : [];
+  return pcfRows
+    .flatMap((row) => [row.TranDate, row.tranDate, row.PostDate, row.postDate])
+    .map(normalizeDateString)
+    .find(Boolean);
+};
+
+export function parseUniPresident00981APcfResponse(
+  raw: unknown,
+  context: UniPresident00981APcfParserContext = {},
+): ParsedUniPresident00981APcfResponse {
+  const source = context.source ?? UPAMC_00981A_PCF_SOURCE_LABEL;
+  const warnings: string[] = [];
+  const errors: string[] = [];
+  const { data: parsedJson, error } = parseJsonLikeResponse(raw);
+
+  if (error) {
+    return {
+      source,
+      constituents: [],
+      warnings,
+      errors: [error],
+    };
+  }
+
+  const data = ((parsedJson as UniPresidentPcfResponse)?.Data ??
+    parsedJson) as UniPresidentPcfResponse;
+  const stockDetails = getUniPresident00981AStockDetails(data);
+  const asOfDate = getUniPresident00981AAsOfDate(
+    data,
+    stockDetails,
+    context.asOfDate,
+  );
+
+  if (stockDetails.length === 0) {
+    errors.push("00981A PCF JSON 找不到 asset[AssetCode=ST].Details 股票明細。");
+  }
+
+  if (!asOfDate) {
+    warnings.push("無法從 00981A PCF JSON 判讀資料日期。");
+  }
+
+  const constituents = stockDetails.flatMap((row, index): EtfConstituent[] => {
+    const stockSymbol = normalizeStockSymbol(String(row.DetailCode ?? ""));
+    const stockName = String(row.DetailName ?? "").trim();
+    const weightPercent = parseWeight(row.NavRate);
+
+    if (!stockSymbol || !stockName || !weightPercent) {
+      warnings.push(
+        `00981A PCF 股票明細第 ${index + 1} 筆缺少有效代號、名稱或 NavRate 權重，已略過。`,
+      );
+      return [];
+    }
+
+    return [
+      {
+        id: `provider-poc-00981A-${stockSymbol}-${index}`,
+        etfSymbol: context.etfSymbol ?? "00981A",
+        stockSymbol,
+        stockName,
+        weightPercent,
+        asOfDate,
+        source,
+      },
+    ];
+  });
+
+  if (stockDetails.length > 0 && constituents.length === 0) {
+    errors.push("00981A PCF JSON 有股票明細，但沒有任何列含有效 NavRate 權重。");
+  }
+
+  return {
+    asOfDate,
+    source,
+    constituents,
+    warnings,
+    errors,
+  };
+}
 
 const createAttemptedSource = (
   label: string,
