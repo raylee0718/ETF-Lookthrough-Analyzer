@@ -1,41 +1,57 @@
 # ETF Lookthrough Analyzer 專案交接摘要
 
-## 1. Project identity
+## 1. Project Identity
 
 - Project name: `ETF Lookthrough Analyzer`
 - Chinese name: `ETF 穿透持股分析器`
 - Current clean project path: `C:\Users\uuuu1\OneDrive\桌面\ETF-Lookthrough-Analyzer`
 - GitHub repository: `https://github.com/raylee0718/ETF-Lookthrough-Analyzer.git`
-- Deployment: 已部署到 Vercel。專案文件目前只有 `docs/POST_DEPLOYMENT_TESTING.md` 中的 `Vercel production URL：待填入`，沒有實際 production URL，因此不要猜測網址。
+- Deployment: 專案文件已提到 Vercel 部署與部署檢查流程，但目前文件中沒有填入正式 production URL；不要自行猜測網址。
 
-本專案是乾淨的 React 專案資料夾，已與舊的 Python active ETF research project 分開。未來維護時請繼續維持此邊界。
+本專案是乾淨的 React 專案，獨立於舊的 Python active ETF research project。此專案不得變成主動型 ETF 經理人交易影響研究工具。
 
-## 2. Project goal
+## 2. Project Goal
 
-ETF Lookthrough Analyzer 是 local-first 的個人投資工具，用來分析自己的 ETF / 股票投資組合在穿透 ETF 成分股後，實際曝險到哪些底層股票、產業與標的。
+ETF Lookthrough Analyzer 是 local-first 的個人投資工具，用來分析自己的 ETF 與個股投資組合在穿透 ETF 後，實際暴露到哪些台股標的與產業。
 
-目前用途包含：
+它目前協助檢查：
 
-- 分析個人投資組合的底層股票曝險。
-- 檢查單一股票集中度。
-- 檢查不同 ETF 之間的成分股重疊。
-- 管理 ETF 成分股資料與資料日期狀態。
-- 管理交易紀錄、價格、手動持股與備份。
-- 透過 JSON 備份 / 匯入與 CSV 匯出保護 localStorage 資料。
+- 投資組合總市值與部位來源。
+- ETF 穿透後的底層股票曝險。
+- 產業曝險。
+- ETF 之間的成分股重疊。
+- 集中度風險。
+- ETF 成分股資料狀態與新舊程度。
+- 交易紀錄、價格紀錄、價格覆蓋率。
+- JSON 備份、匯入與 CSV 匯出。
 
-本專案不是學術或研究型的 ETF 經理人交易影響分析工具，也不應變成舊 Python active ETF research project。
+主要自動化目標是：
 
-明確不屬於本專案範圍：
+`持股 / 交易紀錄 + 最新價格 + 最新台灣 ETF 成分股 -> 更新後的穿透曝險`
 
-- ETF manager rebalance impact research
-- added / removed holdings research
-- increased / decreased ETF holdings analysis
-- same-day / next-day / two-day stock return correlation
-- active ETF price reaction research
-- backend scheduled jobs
-- 網站關閉時仍自動執行的背景每日分析
+此專案聚焦個人投資組合分析，不是 ETF 經理人交易影響、股價反應、調倉研究或學術型量化研究。
 
-## 3. Current tech stack
+## 3. Current Scope Clarification
+
+- 目前 ETF 成分股自動化只聚焦台灣掛牌、主要持有台股的 ETF。
+- `0050 元大台灣50` 是第一個 provider prototype 目標。
+- `00646` 與海外 ETF 成分股自動化目前明確不在範圍內。
+- 全球 ETF 資料、匯率轉換、S&P 500 穿透分析目前延後處理。
+- 手動輸入與 CSV 匯入必須保留，並且仍是最穩定的備援流程。
+
+明確不在本專案範圍內：
+
+- ETF manager rebalance impact research。
+- added / removed holdings research。
+- increased / decreased ETF holdings analysis。
+- same-day / next-day / two-day stock return correlation。
+- active ETF price reaction research。
+- 海外 ETF lookthrough automation。
+- 00646 / S&P 500 constituent automation。
+- backend scheduled jobs。
+- 網站關閉時仍自動背景每日分析。
+
+## 4. Current Tech Stack
 
 - Vite
 - React
@@ -44,9 +60,9 @@ ETF Lookthrough Analyzer 是 local-first 的個人投資工具，用來分析自
 - Recharts
 - Browser `localStorage`
 - `vite-plugin-pwa` optional PWA / deployment setup
-- Static hosting / Vercel deployment
+- Static hosting / Vercel deployment workflow, if deployed from repository
 
-## 4. Completed steps so far
+## 5. Completed Steps So Far
 
 - Step 1: project skeleton and mock dashboard：已完成。
 - Step 2: manual portfolio holdings + localStorage：已完成。
@@ -58,58 +74,78 @@ ETF Lookthrough Analyzer 是 local-first 的個人投資工具，用來分析自
 - Step 8: manual holdings mode vs transaction mode switching：已完成。
 - Step 9: JSON backup/import and CSV export：已完成。
 - Step 10: transaction CSV import：已完成。
-- Step 11: simplified ETF constituent data status / freshness：已完成，但只保留輕量資料狀態與 latest constituent date 行為。
+- Step 11: simplified ETF constituent data status / freshness：已完成。
 - Step 12: README / documentation cleanup：已完成。
 - Step 13: PWA / deployment preparation：已完成。
 - Step 14: deployment readiness / mobile testing checklist：已完成。
 - Step 15: Git initialization and GitHub push：已完成。
-- Step 16: Vercel pre-deployment check：已完成，專案已推到 GitHub 並已部署到 Vercel；實際 production URL 尚未寫入文件。
-- Step 17: post-deployment QA checklist：已完成，見 `docs/POST_DEPLOYMENT_TESTING.md`。
-- Step 18: price data source architecture：已完成，支援 `manual`、`csv`、未來 `provider` 三種 price source type。
-- Step 19: daily price CSV import：已完成，可貼上或匯入 CSV / Excel 表格每日收盤價。
+- Step 16: Vercel pre-deployment check：已完成。
+- Step 17: post-deployment QA checklist：已完成。
+- Step 18: price data source architecture：已完成。
+- Step 19: daily price CSV import：已完成。
+- Step 20: Taiwan closing price provider, user-triggered：已完成。
+- Step 21: one-click price refresh and re-analysis dashboard flow：已完成。
+- Step 22: Taiwan ETF holdings automation scope and provider architecture：已完成。
+- Step 23: 0050 ETF holdings provider prototype：已完成。
 
 Step 11 特別說明：
 
-原本廣義的 ETF version comparison / added / removed / increased / decreased holdings 功能已移除，避免與獨立的 active ETF research project 重疊。本專案只應保留輕量的 ETF 成分股資料狀態、最新資料日期與避免重複計算的行為。
+原本較廣的 ETF version comparison / added / removed / increased / decreased holdings 功能已移除，以避免和獨立的 active ETF research project 重疊。本專案只保留輕量的 ETF 成分股資料狀態、資料日期與 freshness 行為。
 
-## 5. Current pages
+Step 23 特別說明：
 
-- `Dashboard`: 顯示投資組合總覽、資料來源模式、穿透曝險摘要、產業曝險、ETF 重疊摘要、集中度提醒與交易 / 價格摘要。
-- `HoldingsPage`: 管理手動持股，支援新增、編輯、刪除、重設並存入 localStorage。
-- `EtfConstituentsPage`: 匯入、預覽、儲存與管理 ETF 成分股資料；顯示簡化資料狀態與最新資料日期。
-- `LookthroughPage`: 使用目前選定的投資組合資料來源，計算 ETF 穿透後的底層股票與產業曝險。
-- `OverlapPage`: 分析 ETF 之間的成分股數量重疊與加權重疊。
-- `TransactionsPage`: 管理交易紀錄，支援交易 CSV 匯入、預覽、重複偵測與部位推算。
-- `PricesPage`: 管理手動價格、快速更新交易部位價格、價格覆蓋率、每日價格 CSV 匯入，以及未來自動收盤價來源提示。
-- `BackupPage`: 匯出完整 JSON 備份、匯入 JSON 備份、匯出各種 CSV。
+- 已新增 `0050` provider prototype。
+- 嘗試來源是元大官方 0050 持股比重頁：
+  `https://www.yuantaetfs.com/product/detail/0050/ratio`
+- Shell fetch 可以讀取官方頁面 HTML。
+- Browser fetch 可能被 CORS 擋住，因為回應未開放 `Access-Control-Allow-Origin`。
+- 目前 parser 只能從 SSR HTML 中抽出 5 筆可見股票權重列。
+- 因此 `0050` provider 目前標示為 `partial`，不是 full support。
+- CSV 匯入仍是穩定備援流程。
 
-目前沒有 active 的 `EtfVersionComparePage`，不要把已刪除或研究型版本比較頁面當成現有功能。
+## 6. Current Pages
 
-## 6. Current hooks
+- `Dashboard`: 顯示投資組合總覽、總市值、穿透曝險、產業曝險、集中度警示、未對應 ETF 警示、價格覆蓋率，以及一鍵價格更新與重新分析流程。
+- `HoldingsPage`: 管理手動持股模式的 ETF 與個股部位，資料存入 localStorage。
+- `EtfConstituentsPage`: 管理 ETF 成分股，支援手動新增、CSV 匯入、資料狀態檢查、provider config、0050 provider 測試與結果預覽儲存。
+- `LookthroughPage`: 顯示 ETF 穿透後的底層股票曝險與產業曝險。
+- `OverlapPage`: 分析不同 ETF 之間的底層成分股重疊。
+- `TransactionsPage`: 管理交易紀錄，支援手動輸入與 CSV 匯入，並用交易紀錄計算目前部位。
+- `PricesPage`: 管理每日價格紀錄、手動價格、CSV 匯入價格、provider 匯入價格與價格覆蓋率。
+- `BackupPage`: 匯出完整 JSON 備份、匯入 JSON 備份，以及匯出相關 CSV。
 
-- `usePortfolioHoldings`: 管理手動持股 localStorage 狀態。
-- `useEtfConstituents`: 管理 ETF 成分股 localStorage 狀態，支援依 ETF 取代匯入資料。
-- `useTransactions`: 管理交易紀錄 localStorage 狀態。
-- `usePriceRecords`: 管理價格紀錄 localStorage 狀態，支援單筆新增 / 更新 / 刪除、快速 upsert、批次每日價格 upsert。
-- `useAppSettings`: 管理 App 設定，例如 manual / transaction portfolio mode。
-- `useLocalStorage`: 泛用 localStorage helper，目前仍保留在專案中。
+目前沒有 active 的 `EtfVersionComparePage`，不要把已刪除的 ETF 版本比較頁面當成現行功能。
 
-## 7. Current lib utilities
+## 7. Current Hooks
 
-- `lookthrough.ts`: 計算 ETF 穿透後的底層股票曝險、產業曝險、未對應 ETF 與集中度提醒。
-- `overlap.ts`: 計算 ETF 兩兩成分股重疊、加權重疊與重疊等級。
-- `positions.ts`: 將交易紀錄轉換為目前部位、平均成本、已實現損益等。
-- `prices.ts`: 取得最新價格、計算交易部位市值、轉換交易部位為分析用 holdings、價格來源標籤、價格缺口與覆蓋率。
-- `portfolioSource.ts`: 根據 App 設定在手動持股模式與交易紀錄模式之間切換分析資料來源。
-- `backup.ts`: 建立 JSON 備份、驗證備份、寫回 localStorage、匯出 CSV。
-- `importTransactions.ts`: 解析交易 CSV / 貼上資料，產生預覽、驗證錯誤與重複判斷。
-- `importPrices.ts`: 解析每日價格 CSV / 貼上資料，支援中文與英文欄位、quoted CSV、tab-separated Excel 資料、錯誤列預覽與重複判斷。
-- `constituentVersions.ts`: 取得每檔 ETF 最新成分股資料與簡化資料狀態。用途是 freshness / latest record，不是研究型版本比較。
-- `format.ts`: 格式化金額、百分比、數字、股數。
-- `formatters.ts`: 早期格式化 helper，仍被部分頁面使用。
-- `portfolioStorage.ts`: 定義手動持股 localStorage key。
+- `usePortfolioHoldings`: 管理手動投資組合持股與 localStorage。
+- `useEtfConstituents`: 管理 ETF 成分股資料、依 ETF 取代成分股、CSV/manual 匯入後儲存。
+- `useTransactions`: 管理交易紀錄與 localStorage。
+- `usePriceRecords`: 管理價格紀錄、單筆新增/更新、批次 upsert、CSV/provider 匯入價格。
+- `useAppSettings`: 管理 app 設定，包含 manual holdings mode 與 transaction mode。
+- `useEtfProviderConfigs`: 管理 ETF holdings provider configs，localStorage key 為 `etf-lookthrough-etf-provider-configs`。
+- `useLocalStorage`: 通用 localStorage helper，處理讀取、寫入與 JSON parse fallback。
 
-## 8. Current types
+## 8. Current Lib Utilities
+
+- `lookthrough.ts`: 計算 ETF 穿透後的底層股票曝險、產業曝險、集中度警示與未對應 ETF。
+- `overlap.ts`: 計算 ETF 之間的底層成分股重疊、共同持股與重疊權重。
+- `positions.ts`: 將交易紀錄彙總成目前部位、股數、成本與 realized/unrealized 相關欄位。
+- `prices.ts`: 處理最新價格查找、市值估算、價格覆蓋率、缺少價格代號與 position market value。
+- `portfolioSource.ts`: 依 app 設定選擇 manual holdings 或 transaction positions 作為 Dashboard / lookthrough 計算來源。
+- `backup.ts`: 建立 JSON 備份、預覽備份、還原備份、匯出 CSV。
+- `importTransactions.ts`: 解析交易紀錄 CSV / Excel-like tabular data。
+- `importPrices.ts`: 解析每日價格 CSV / Excel-like tabular data 並轉成 price records。
+- `priceProviders.ts`: 定義台灣價格 provider 架構，包含 TWSE / TPEx 使用者觸發的收盤價 fetch 與 price record 轉換。
+- `priceRefresh.ts`: Dashboard 一鍵價格更新流程，呼叫可用 provider、upsert price records、回傳匯入摘要與警示。
+- `constituentVersions.ts`: 輕量計算 ETF 成分股資料狀態、最新日期與 freshness；不是版本比較研究。
+- `etfHoldingsProviders.ts`: ETF holdings provider 通用架構與 placeholder capability notes。
+- `taiwanEtfProviders.ts`: 台灣 ETF provider prototype，目前包含 `0050` 元大官方 ratio page 嘗試、parser helper 與 provider config 測試流程。
+- `format.ts`: 數字、百分比、貨幣等顯示格式。
+- `formatters.ts`: 輔助格式化 helper。
+- `portfolioStorage.ts`: 手動持股 localStorage key 與基礎儲存 helper。
+
+## 9. Current Types
 
 - `src/types/portfolio.ts`
   - `PortfolioHolding`
@@ -122,136 +158,179 @@ Step 11 特別說明：
   - `TransactionType`
   - `CalculatedPosition`
 - `src/types/prices.ts`
-  - `PriceSourceType`: `manual` / `csv` / `provider`
+  - `PriceSourceType`
   - `PriceRecord`
   - `PositionWithMarketValue`
+- `src/types/priceProvider.ts`
+  - price provider market / status / fetch result / fetched price row 相關型別。
+- `src/types/etfProvider.ts`
+  - `EtfHoldingsProviderType`
+  - `EtfHoldingsProviderStatus`
+  - `EtfHoldingsFetchResult`
+  - `EtfProviderConfig`
 - `src/types/settings.ts`
   - `PortfolioDataSourceMode`
   - `AppSettings`
-- Backup / import related types are mostly colocated in utilities:
+- Backup / import related types 多數 colocated 在 utility：
   - `BackupFile`, `BackupPreview` in `backup.ts`
   - transaction import row/result types in `importTransactions.ts`
   - price import row/result types in `importPrices.ts`
 
-## 9. localStorage keys
+## 10. localStorage Keys
 
-- `etf-lookthrough-portfolio-holdings`: 手動持股資料。
+- `etf-lookthrough-portfolio-holdings`: 手動投資組合持股。
 - `etf-lookthrough-etf-constituents`: ETF 成分股資料。
 - `etf-lookthrough-transactions`: 交易紀錄。
-- `etf-lookthrough-price-records`: 價格紀錄，包含手動價格與 CSV 匯入價格。
-- `etf-lookthrough-app-settings`: App 設定，例如 portfolio data source mode。
+- `etf-lookthrough-price-records`: 價格紀錄，包含 manual / csv / provider 來源。
+- `etf-lookthrough-app-settings`: App 設定，包含 portfolio source mode。
+- `etf-lookthrough-last-price-refresh`: Dashboard 上次價格更新 / 重新分析時間。
+- `etf-lookthrough-etf-provider-configs`: ETF holdings provider configs。
 
-目前沒有其他主要 localStorage key。
+## 11. Main Calculation Logic
 
-## 10. Main calculation logic
+Lookthrough exposure:
 
-### Lookthrough exposure
+`portfolioSource.ts` 先依 `useAppSettings` 選擇資料來源。如果是 manual mode，使用 `HoldingsPage` 的手動部位；如果是 transaction mode，使用 `positions.ts` 由交易紀錄算出的目前部位，並在有價格時估算市值。接著 `lookthrough.ts` 將 ETF 持股依 ETF 成分股權重拆到個股曝險，個股則直接保留為底層曝險。
 
-分析資料來源先由 `portfolioSource.ts` 決定。若是手動模式，直接使用手動持股市值；若是交易模式，先由交易紀錄推算部位，再用價格計算市值並轉成分析用 holdings。
+ETF overlap:
 
-`lookthrough.ts` 會依 ETF 成分股權重，把 ETF 持股市值拆成底層股票曝險。直接股票或無法對應成分股的標的會保留為直接曝險或未對應提醒。
+`overlap.ts` 比較不同 ETF 的 constituent stock symbols，找出共同持股、共同權重與重疊程度，用來檢查不同 ETF 是否其實買到相似底層股票。
 
-### ETF overlap
+Transactions to positions:
 
-`overlap.ts` 依 ETF 成分股清單計算兩檔 ETF 的共同股票數量、各自重疊比例與加權重疊。這是個人持股重疊檢查，不是 ETF 經理人交易研究。
+`positions.ts` 將買進、賣出、股息等交易紀錄彙總成目前部位，包含股數、成本與平均成本等欄位。transaction mode 的投資組合來源由這些 positions 轉換而來。
 
-### Transactions to positions
+Prices and market value:
 
-`positions.ts` 將買進 / 賣出交易依代號彙總為目前股數、平均成本、總成本、已實現損益等部位資料。
+`prices.ts` 依 symbol 找最新價格，用 `shares * latest price` 估算市值。若缺少價格，該部位會被列入 missing price summary，避免默默用錯誤市值。
 
-### Prices and market value
+Manual mode vs transaction mode:
 
-`prices.ts` 會為每個代號取最新日期價格。交易模式下，若有價格，市值為 `shares × latest price`；若缺少價格，目前會以投入成本估算市值並標記 missing。
+- Manual mode: Dashboard / Lookthrough 使用手動持股與使用者輸入的 market value。
+- Transaction mode: Dashboard / Lookthrough 使用交易紀錄算出的 positions，並透過最新價格估算市值。
+- `PortfolioModeSwitch` 只切換資料來源，不會刪除另一種模式的資料。
 
-### Manual mode vs transaction mode
+Price coverage:
 
-- Manual mode: 直接使用 `HoldingsPage` 的手動市值。
-- Transaction mode: 使用 `TransactionsPage` 的交易紀錄推算部位，再用 `PricesPage` 的價格計算市值。
-- `PortfolioModeSwitch` 讓使用者切換兩種模式。
+價格覆蓋率會統計 transaction positions 中有多少部位找到最新價格，並列出缺少價格代號。Dashboard 在 transaction mode 會顯示交易部位數、已有價格數、缺少價格數、覆蓋率與缺少價格代號。
 
-### Price coverage
+Daily price CSV import:
 
-Step 18 後，`getPriceCoverageSummary` 會計算：
+`PricesPage` 使用 `importPrices.ts` 解析 CSV / Excel-like data，轉成 `PriceRecord` 後透過 `usePriceRecords` upsert。相同 date + symbol 的價格會被更新或取代。
 
-- 目前交易部位數
-- 已有價格數
-- 缺少價格數
-- 覆蓋率
-- 缺少價格的代號
+Provider price refresh:
 
-Dashboard 與 PricesPage 會使用這些資訊提醒交易模式下的價格完整度。
+`priceRefresh.ts` 由 Dashboard 的一鍵更新按鈕觸發，呼叫可用價格 provider，例如 TWSE / TPEx，轉成 `PriceRecord` 後批次 upsert。React state 更新後，Dashboard 既有計算會自動重新執行，不建立第二套 dashboard calculation path。
 
-### Daily price CSV import
+ETF constituent data usage:
 
-Step 19 後，`PricesPage` 可貼上或選擇 CSV / Excel 表格每日價格資料。`importPrices.ts` 會解析資料、保留無效列並顯示錯誤、偵測同日期同代號價格。匯入時可選擇覆蓋或略過重複資料。
+ETF 成分股資料存在 `useEtfConstituents` 管理的 localStorage。Lookthrough、Overlap、Dashboard warning 與 ETF data status 都依這份資料運作。CSV/manual 匯入仍是目前最可靠來源。
 
-匯入價格會寫入 `usePriceRecords` 管理的 localStorage，並設定：
+## 12. Current Automation Status
 
-- `sourceType: "csv"`
-- `source`: 使用輸入來源或預設 `CSV 匯入`
-- `fetchedAt`: 匯入時的 timestamp
+- App 已可在 holdings、transactions、prices 或 ETF constituents 更新後，自動透過 React state 重新計算 Dashboard 與 lookthrough exposure。
+- Price automation 已部分完成，透過使用者在 Dashboard 觸發 provider refresh，不是背景排程。
+- Daily price CSV import 提供半自動備援流程。
+- ETF constituent automation 仍在早期階段。
+- `0050` provider 目前只是 partial prototype。
+- 純 frontend + localStorage 架構下，ETF 成分股全自動化不一定可靠，原因包含 CORS、issuer 網站格式差異、動態頁面、官方資料頻率不同。
+- 網站關閉時自動背景每日分析不可能在目前 frontend-only localStorage 設計中完成；若未來需要，必須另行評估 backend / serverless / scheduled infrastructure，但這不是目前 Step 24 目標。
 
-匯入後交易模式市值、價格覆蓋率、Dashboard 與 LookthroughPage 都會透過既有資料流重新計算。
+目前每日分析是使用者開啟網站後手動觸發更新，不是背景排程。
 
-## 11. Daily analysis status
+## 13. Next Planned Step: Step 24 — Stabilize The 0050 ETF Holdings Provider Source
 
-- App 已可在 holdings、transactions、prices 或 ETF constituents 更新後，重新計算 Dashboard 與穿透曝險。
-- Step 19 提供半自動每日流程：使用者可匯入每日價格 CSV，App 立即更新價格並重新計算交易模式市值與穿透曝險。
-- Fully automatic stock price fetching 尚未實作。
-- 網站關閉時的 fully automatic background daily analysis 在目前 frontend-only + localStorage 設計中不可行，除非引入 backend、database 或 scheduled infrastructure。
-- 下一個合理方向是 price provider integration：在使用者開啟 App 時，自動向合法且穩定的台股收盤價資料來源更新價格。
+Step 24 應該只做 `0050` provider source 穩定化，不擴大到其他 ETF。
 
-## 12. Deployment and data warning
+Step 24 應該調查官方來源：
+
+- Yuanta 0050 ratio page:
+  `https://www.yuantaetfs.com/product/detail/0050/ratio`
+- Yuanta 0050 PCF page:
+  `https://www.yuantaetfs.com/tradeInfo/pcf/0050`
+- 從官方頁面或 Nuxt chunks 中可發現的官方 downloadable file 或 stable endpoint。
+
+Step 24 應該確認：
+
+- PCF 是否包含完整 holdings / basket rows。
+- PCF 是否有可用的 weightPercent，或是否能用可靠欄位推導。
+- Browser CORS 是否擋住自動 fetching。
+- 若官方來源不穩，CSV 匯入繼續作為 fallback。
+
+Step 24 不應該：
+
+- 擴大到其他 ETF。
+- 使用非官方來源。
+- 做 fragile arbitrary HTML scraping，除非明確標示 experimental。
+- 加入 backend / serverless proxy。
+- 實作 active ETF research。
+
+## 14. Deployment And Data Warning
 
 - App 是 local-first。
-- 資料儲存在每個 browser / device 的 localStorage。
-- 桌機與手機不會自動同步。
-- 請使用 JSON backup/export/import 在裝置之間搬移資料。
-- 清除瀏覽器資料、清除網站資料、換瀏覽器、使用無痕模式或換手機，可能會刪除 App 資料。
-- 即使已部署到 Vercel，GitHub repo 仍可維持 private。
-- Vercel 靜態部署不等於資料雲端同步；它只提供 App 檔案，使用者資料仍在本機瀏覽器。
+- 資料存放在每個 browser / device 的 localStorage。
+- 桌機和手機不會自動同步。
+- 若要在不同裝置之間搬移資料，請使用 JSON backup / export / import。
+- 清除瀏覽器資料、重設網站資料或更換瀏覽器可能會刪除 app data。
+- 即使有 Vercel deployment，GitHub repository 仍可以保持 private。
 
-## 13. Known limitations / technical debt
+## 15. Known Limitations / Technical Debt
 
 - No backend。
 - No login。
 - No database。
-- 尚未實作 automatic stock price fetching。
-- 尚未實作 automatic ETF constituent fetching。
-- No cross-device sync。
+- ETF 成分股自動抓取尚未達到完整可靠。
+- 尚無海外 ETF 自動化支援。
+- 尚無 `00646` 成分股自動化。
+- 無 cross-device sync。
 - localStorage schema migration 尚未完整設計。
-- 寬表格在手機上的 UX 還可以更好。
-- 重要 calculation utilities 需要輕量單元測試。
-- 需要持續小心與舊 active ETF research project 分離，不要把 ETF 經理人交易影響研究功能加回此 App。
+- 寬表格在手機上的 UX 仍可改善。
+- 重要 calculation utilities 需要更完整的測試。
+- 必須持續和舊的 active ETF research project 保持清楚分離。
+- `0050` provider 目前 partial，原因是官方 ratio page SSR 只解析出 5 筆可見列，且 browser fetch 可能受 CORS 阻擋。
 
-## 14. Safe next steps
+## 16. Safe Next Steps After Step 24
 
-建議優先順序：
+1. 如果 `0050` PCF 提供可用完整權重，且 browser fetch 可行，將 `0050` provider 升級為 full support。
+2. 如果官方來源被 CORS 阻擋，先維持 CSV fallback 為預設流程，之後再評估非常薄的 serverless proxy。
+3. 如果 PCF 只有 shares 但沒有 weights，不要儲存不完整 constituents 給 lookthrough 使用；只有在能用可靠 value 欄位推導權重時才升級。
+4. 為 parser utilities 加上輕量測試。
+5. 只有在 `0050` 穩定後，才考慮下一檔台灣 ETF。
+6. 暫時不要實作海外 ETF automation。
 
-1. Price provider integration / automatic Taiwan closing price fetch when the app opens。
-2. Better mobile table UI。
-3. Lightweight unit tests for calculation utilities。
-4. Import templates and data validation polish。
-5. Optional PWA polish。
-6. 只有當使用者真的需要網站關閉時仍執行的背景每日任務，才考慮 backend / scheduled automation。
-
-### Recommended next Codex prompt
+## 17. 下一次 Codex 建議指令
 
 ```text
 Please work inside:
 C:\Users\uuuu1\OneDrive\桌面\ETF-Lookthrough-Analyzer
 
-Implement only the next safe step: price provider integration preparation for Taiwan closing prices when the user opens the app.
+Read PROJECT_HANDOFF.md first.
+
+Implement Step 24 only: stabilize the 0050 ETF holdings provider source.
 
 Important:
-- Do not add backend, login, database, scraping, or scheduled jobs.
-- Do not implement active ETF research features.
-- Do not add ETF manager rebalance impact research, added/removed holdings research, increased/decreased ETF holdings analysis, or same-day/next-day/two-day return correlation.
-- Preserve existing lookthrough, transaction, and portfolio mode calculation logic.
-- Prefer an interface/adapter layer and UI toggle/placeholder before any real provider call.
+- Do not expand to other ETFs yet.
+- Do not implement active ETF manager research features.
+- Do not add added/removed/increased/decreased holdings analysis.
+- Do not add stock return correlation analysis.
+- Do not add backend, database, login, serverless proxy, scheduled jobs, or background automation.
+- Do not remove manual or CSV ETF constituent import.
+
+Step 24 goal:
+- Investigate official 0050 sources:
+  - https://www.yuantaetfs.com/product/detail/0050/ratio
+  - https://www.yuantaetfs.com/tradeInfo/pcf/0050
+  - official downloadable files or stable endpoints discoverable from official pages or Nuxt chunks.
+- Determine whether PCF contains full holdings/basket rows.
+- Determine whether usable weightPercent can be derived reliably.
+- Determine whether browser CORS blocks automatic fetching.
+- Keep CSV import as fallback.
+- Avoid unofficial sources.
+- Avoid fragile scraping unless clearly marked experimental.
+- Build and test after changes.
 ```
 
-## 15. Verification notes
+## 18. Verification Notes
 
 交接文件更新後應執行：
 
@@ -260,14 +339,11 @@ npm.cmd run build
 npx.cmd tsc --noEmit --noUnusedLocals --noUnusedParameters
 ```
 
-若只有 `PROJECT_HANDOFF.md` 改動，請只提交文件更新：
+若有檔案變更：
 
 ```powershell
-git add PROJECT_HANDOFF.md
-git commit -m "Update project handoff"
+git status
+git add PROJECT_HANDOFF.md README.md docs/
+git commit -m "Update handoff before 0050 provider stabilization"
 git push
 ```
-
-## Step 21 note
-
-目前每日分析是使用者開啟網站後手動觸發更新，不是背景排程。Dashboard 的「每日更新與重新分析」會呼叫既有價格 provider，將可用收盤價寫入 localStorage 價格表，再透過既有 transaction mode、price coverage、portfolio source 與 lookthrough calculation flow 重新計算儀表板。
