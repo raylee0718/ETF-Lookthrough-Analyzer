@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import ExposureBarChart from "../components/ExposureBarChart";
 import PortfolioModeSwitch from "../components/PortfolioModeSwitch";
 import SectionCard from "../components/SectionCard";
@@ -22,7 +22,15 @@ import {
   getPriceCoverageSummary,
   getLatestPriceMap,
 } from "../lib/prices";
+import {
+  refreshAvailableClosingPrices,
+  type PriceRefreshSummary,
+} from "../lib/priceRefresh";
 import { getPortfolioHoldingsForAnalysis } from "../lib/portfolioSource";
+import type {
+  PriceRecordInput,
+  UpsertManyPriceRecordsResult,
+} from "../hooks/usePriceRecords";
 import type { EtfConstituent, PortfolioHolding } from "../types/portfolio";
 import type { PriceRecord } from "../types/prices";
 import type { TransactionRecord } from "../types/transactions";
@@ -32,6 +40,43 @@ type DashboardProps = {
   constituents: EtfConstituent[];
   transactions: TransactionRecord[];
   priceRecords: PriceRecord[];
+  upsertManyPriceRecords: (
+    records: PriceRecordInput[],
+    options: { replaceSameDateSymbol: boolean },
+  ) => UpsertManyPriceRecordsResult;
+  onNavigateToPrices?: () => void;
+};
+
+const LAST_PRICE_REFRESH_STORAGE_KEY = "etf-lookthrough-last-price-refresh";
+
+const formatRefreshTime = (value: string) => {
+  if (!value) {
+    return "尚未更新";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hour = String(date.getHours()).padStart(2, "0");
+  const minute = String(date.getMinutes()).padStart(2, "0");
+
+  return `${year}-${month}-${day} ${hour}:${minute}`;
+};
+
+const formatMarkets = (markets: PriceRefreshSummary["marketsUpdated"]) => {
+  if (markets.length === 0) {
+    return "無";
+  }
+
+  return markets
+    .map((market) => (market === "twse" ? "上市" : "上櫃"))
+    .join("、");
 };
 
 export default function Dashboard({
@@ -39,8 +84,17 @@ export default function Dashboard({
   constituents,
   transactions,
   priceRecords,
+  upsertManyPriceRecords,
+  onNavigateToPrices,
 }: DashboardProps) {
   const { settings } = useAppSettings();
+  const [isRefreshingPrices, setIsRefreshingPrices] = useState(false);
+  const [refreshSummary, setRefreshSummary] =
+    useState<PriceRefreshSummary | null>(null);
+  const [refreshErrorMessage, setRefreshErrorMessage] = useState("");
+  const [lastRefreshAt, setLastRefreshAt] = useState(() =>
+    window.localStorage.getItem(LAST_PRICE_REFRESH_STORAGE_KEY) ?? "",
+  );
   const portfolioSource = useMemo(
     () =>
       getPortfolioHoldingsForAnalysis({
@@ -92,6 +146,32 @@ export default function Dashboard({
     () => getPriceCoverageSummary(transactionPositions, priceRecords),
     [transactionPositions, priceRecords],
   );
+  const isTransactionMode = settings.portfolioDataSourceMode === "transactions";
+
+  const handleRefreshPrices = async () => {
+    setIsRefreshingPrices(true);
+    setRefreshErrorMessage("");
+
+    try {
+      const result = await refreshAvailableClosingPrices({
+        priceRecords,
+        upsertManyPriceRecords,
+      });
+
+      setRefreshSummary(result);
+      setLastRefreshAt(result.fetchedAt);
+      window.localStorage.setItem(
+        LAST_PRICE_REFRESH_STORAGE_KEY,
+        result.fetchedAt,
+      );
+    } catch {
+      setRefreshErrorMessage(
+        "更新失敗，請稍後再試，或改用每日價格 CSV 匯入。",
+      );
+    } finally {
+      setIsRefreshingPrices(false);
+    }
+  };
 
   return (
     <main className="min-h-screen bg-stone-100 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
@@ -107,6 +187,126 @@ export default function Dashboard({
         </header>
 
         <PortfolioModeSwitch />
+
+        <section className="rounded-lg border border-emerald-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-3xl">
+              <p className="text-xs font-semibold uppercase tracking-normal text-emerald-700">
+                Price refresh
+              </p>
+              <h2 className="mt-1 text-lg font-semibold text-slate-950">
+                每日更新與重新分析
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                按下更新後，系統會嘗試抓取可用的收盤價資料，寫入價格表，並用最新價格重新計算交易紀錄模式下的市值與穿透曝險。
+              </p>
+              <p className="mt-2 text-sm font-medium text-slate-700">
+                上次更新：{formatRefreshTime(lastRefreshAt)}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                {isTransactionMode
+                  ? "目前為交易紀錄模式，儀表板已使用最新價格重新估算市值。"
+                  : "目前為手動持股模式，價格更新主要影響交易紀錄模式。若要用最新價格估算市值，請切換到交易紀錄模式。"}
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-col gap-2 sm:flex-row lg:flex-col">
+              <button
+                className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                disabled={isRefreshingPrices}
+                onClick={handleRefreshPrices}
+                type="button"
+              >
+                {isRefreshingPrices ? "更新中..." : "更新價格並重新分析"}
+              </button>
+              {onNavigateToPrices ? (
+                <button
+                  className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                  onClick={onNavigateToPrices}
+                  type="button"
+                >
+                  前往價格表
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          {refreshSummary ? (
+            <div className="mt-4 rounded-lg border border-emerald-100 bg-emerald-50 p-4 text-sm leading-6 text-emerald-950">
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                <p>更新時間：{formatRefreshTime(refreshSummary.fetchedAt)}</p>
+                <p>
+                  匯入 / 更新價格筆數：
+                  {refreshSummary.importedCount + refreshSummary.replacedCount}
+                </p>
+                <p>抓取價格筆數：{refreshSummary.fetchedCount}</p>
+                <p>涵蓋市場：{formatMarkets(refreshSummary.marketsUpdated)}</p>
+              </div>
+              {refreshSummary.skippedCount > 0 ? (
+                <p className="mt-2">略過：{refreshSummary.skippedCount} 筆</p>
+              ) : null}
+              {refreshSummary.warnings.length > 0 ? (
+                <div className="mt-3">
+                  <p className="font-semibold">提醒</p>
+                  <ul className="mt-1 list-disc space-y-1 pl-5">
+                    {refreshSummary.warnings.map((warning) => (
+                      <li key={warning}>{warning}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {refreshSummary.errors.length > 0 ? (
+                <div className="mt-3 text-red-700">
+                  <p className="font-semibold">錯誤</p>
+                  <ul className="mt-1 list-disc space-y-1 pl-5">
+                    {refreshSummary.errors.map((error) => (
+                      <li key={error}>{error}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {isTransactionMode ? (
+            <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+              <p className="font-semibold text-slate-950">價格覆蓋率</p>
+              {priceCoverageSummary.totalPositionCount === 0 ? (
+                <p className="mt-2">
+                  目前沒有交易紀錄部位，因此價格覆蓋率無法計算。
+                </p>
+              ) : (
+                <>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                    <p>交易部位數：{priceCoverageSummary.totalPositionCount} 檔</p>
+                    <p>已有價格數：{priceCoverageSummary.pricedPositionCount} 檔</p>
+                    <p>缺少價格數：{priceCoverageSummary.missingPriceCount} 檔</p>
+                    <p>
+                      覆蓋率：
+                      {formatPercent(priceCoverageSummary.coveragePercent)}
+                    </p>
+                  </div>
+                  {priceCoverageSummary.missingPriceCount > 0 ? (
+                    <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-950">
+                      <p>
+                        部分標的仍缺少價格，可能是上櫃、海外 ETF、資料來源尚未支援，或代號格式不一致。
+                      </p>
+                      <p className="mt-1">
+                        缺少價格代號：
+                        {priceCoverageSummary.missingSymbols.join("、")}
+                      </p>
+                    </div>
+                  ) : null}
+                </>
+              )}
+            </div>
+          ) : null}
+
+          {refreshErrorMessage ? (
+            <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              {refreshErrorMessage}
+            </p>
+          ) : null}
+        </section>
 
         <section className="rounded-lg border border-blue-200 bg-blue-50 p-5 text-blue-950">
           <h2 className="text-base font-semibold">{portfolioSource.modeLabel}</h2>

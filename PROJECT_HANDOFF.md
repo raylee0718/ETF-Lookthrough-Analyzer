@@ -267,3 +267,7 @@ git add PROJECT_HANDOFF.md
 git commit -m "Update project handoff"
 git push
 ```
+
+## Step 21 note
+
+目前每日分析是使用者開啟網站後手動觸發更新，不是背景排程。Dashboard 的「每日更新與重新分析」會呼叫既有價格 provider，將可用收盤價寫入 localStorage 價格表，再透過既有 transaction mode、price coverage、portfolio source 與 lookthrough calculation flow 重新計算儀表板。

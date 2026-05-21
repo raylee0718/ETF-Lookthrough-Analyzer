@@ -80,8 +80,10 @@ export default function App() {
         <Dashboard
           constituents={etfConstituents.constituents}
           holdings={portfolioHoldings.holdings}
+          onNavigateToPrices={() => setActivePage("prices")}
           priceRecords={priceRecords.priceRecords}
           transactions={transactions.transactions}
+          upsertManyPriceRecords={priceRecords.upsertManyPriceRecords}
         />
       ) : null}
 
