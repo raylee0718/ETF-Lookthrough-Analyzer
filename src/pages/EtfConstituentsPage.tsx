@@ -95,6 +95,61 @@ const isProviderResultSafeToSave = (result: EtfHoldingsFetchResult) =>
       constituent.weightPercent > 0,
   );
 
+const formatDiagnosticTime = (value?: string) => {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString("zh-TW", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const getExecutionEnvironmentLabel = (result: EtfHoldingsFetchResult) => {
+  const runtime = result.runtimeDiagnostics;
+
+  if (!runtime) {
+    return "browser";
+  }
+
+  const siteLabel =
+    runtime.siteEnvironment === "local-dev"
+      ? "local dev"
+      : runtime.siteEnvironment === "deployed-site"
+        ? "deployed site"
+        : "unknown site";
+
+  return `${runtime.executionEnvironment} / ${siteLabel}${
+    runtime.origin ? ` / ${runtime.origin}` : ""
+  }`;
+};
+
+const getProviderDecisionNote = (result: EtfHoldingsFetchResult) => {
+  if (isProviderResultSafeToSave(result)) {
+    return "0050 provider 可在目前瀏覽器環境使用。你可以儲存此結果，並用於穿透分析。";
+  }
+
+  if (result.supportLevel === "blocked_by_cors") {
+    return "0050 官方資料來源可用，但瀏覽器無法直接抓取。下一步可選擇：A. 維持 CSV 匯入；B. 建立極薄 serverless proxy。";
+  }
+
+  if (result.supportLevel === "partial") {
+    return "目前只取得部分資料，不建議儲存為正式成分股。";
+  }
+
+  return "目前測試失敗，請先使用 CSV 匯入作為穩定備援。";
+};
+
 type ParseResult = {
   records: EtfConstituentInput[];
   errors: string[];
@@ -746,6 +801,150 @@ export default function EtfConstituentsPage({
                                   <p className="font-medium text-slate-950">
                                     {providerStatusLabels[testResult.status]}
                                   </p>
+                                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-blue-950">
+                                    <p className="font-semibold">
+                                      0050 provider 實機診斷
+                                    </p>
+                                    <div className="mt-2 grid gap-1">
+                                      <p>
+                                        測試時間：
+                                        {formatDiagnosticTime(
+                                          testResult.runtimeDiagnostics
+                                            ?.testedAt ?? testResult.fetchedAt,
+                                        )}
+                                      </p>
+                                      <p>測試來源：{testResult.source}</p>
+                                      <p>
+                                        執行環境：
+                                        {getExecutionEnvironmentLabel(testResult)}
+                                      </p>
+                                      <p>
+                                        結果狀態：
+                                        {testResult.supportLevel
+                                          ? providerSupportLevelLabels[
+                                              testResult.supportLevel
+                                            ]
+                                          : providerStatusLabels[
+                                              testResult.status
+                                            ]}
+                                      </p>
+                                      <p>
+                                        取得筆數：
+                                        {testResult.constituents.length}
+                                      </p>
+                                      <p>
+                                        權重合計：
+                                        {formatPercent(
+                                          getProviderResultWeightTotal(
+                                            testResult,
+                                          ),
+                                        )}
+                                      </p>
+                                      <p>
+                                        資料日期：
+                                        {testResult.asOfDate ?? "-"}
+                                      </p>
+                                      <p>
+                                        是否可安全儲存：
+                                        {isProviderResultSafeToSave(testResult)
+                                          ? "是"
+                                          : "否"}
+                                      </p>
+                                      {testResult.supportLevel ===
+                                      "blocked_by_cors" ? (
+                                        <p className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-amber-950">
+                                          瀏覽器端可能受到 CORS 限制，無法直接讀取官方來源。官方資料本身可用，但此 local-first 前端版本可能需要 CSV 匯入或 serverless proxy 才能自動更新。
+                                        </p>
+                                      ) : null}
+                                      {testResult.errors.length > 0 ? (
+                                        <div className="text-red-700">
+                                          <p className="font-medium">
+                                            錯誤訊息
+                                          </p>
+                                          {testResult.errors.map((error) => (
+                                            <p key={error}>{error}</p>
+                                          ))}
+                                        </div>
+                                      ) : null}
+                                      <p className="font-medium">
+                                        建議下一步：
+                                        {getProviderDecisionNote(testResult)}
+                                      </p>
+                                    </div>
+                                    <details className="mt-3 rounded-lg border border-blue-100 bg-white p-3">
+                                      <summary className="cursor-pointer font-medium">
+                                        debug details
+                                      </summary>
+                                      <div className="mt-2 grid gap-2 break-words text-xs text-slate-600">
+                                        <p>
+                                          fetchedAt：
+                                          {testResult.fetchedAt}
+                                        </p>
+                                        <p>
+                                          parsed row count：
+                                          {testResult.constituents.length}
+                                        </p>
+                                        {testResult.attemptedSources?.map(
+                                          (source) => (
+                                            <div
+                                              className="rounded border border-stone-200 p-2"
+                                              key={`debug-${source.label}-${source.url}`}
+                                            >
+                                              <p>attempted URL：{source.url}</p>
+                                              <p>
+                                                source status：
+                                                {
+                                                  providerSupportLevelLabels[
+                                                    source.status
+                                                  ]
+                                                }
+                                              </p>
+                                              <p>
+                                                raw error name：
+                                                {source.errorName ?? "-"}
+                                              </p>
+                                              <p>
+                                                raw error message：
+                                                {source.errorMessage ?? "-"}
+                                              </p>
+                                              <p>
+                                                CORS-like：
+                                                {source.corsLikeFailure
+                                                  ? "yes"
+                                                  : "no"}
+                                              </p>
+                                            </div>
+                                          ),
+                                        )}
+                                        {testResult.warnings.length > 0 ? (
+                                          <div>
+                                            <p className="font-medium">
+                                              warnings
+                                            </p>
+                                            {testResult.warnings.map(
+                                              (warning) => (
+                                                <p key={`debug-${warning}`}>
+                                                  {warning}
+                                                </p>
+                                              ),
+                                            )}
+                                          </div>
+                                        ) : null}
+                                        {testResult.errors.length > 0 ? (
+                                          <div>
+                                            <p className="font-medium">
+                                              errors
+                                            </p>
+                                            {testResult.errors.map((error) => (
+                                              <p key={`debug-${error}`}>
+                                                {error}
+                                              </p>
+                                            ))}
+                                          </div>
+                                        ) : null}
+                                      </div>
+                                    </details>
+                                  </div>
                                   <p>
                                     支援等級：
                                     {testResult.supportLevel

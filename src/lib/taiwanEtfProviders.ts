@@ -1,6 +1,7 @@
 import type {
   EtfHoldingsAttemptedSource,
   EtfHoldingsFetchResult,
+  EtfHoldingsRuntimeDiagnostics,
 } from "../types/etfProvider";
 import type { EtfConstituent } from "../types/portfolio";
 
@@ -18,6 +19,8 @@ const YUANTA_0050_FALLBACK_MESSAGE =
   "0050 官方資料來源目前無法由瀏覽器直接穩定取得，請先使用 CSV 匯入。";
 const YUANTA_0050_CORS_MESSAGE =
   "官方來源可在伺服器端讀取，但瀏覽器端可能受 CORS 限制。此 local-first 版本仍建議使用 CSV 匯入，或未來改用 serverless proxy。";
+const YUANTA_0050_BROWSER_CORS_MESSAGE =
+  "瀏覽器端可能受到 CORS 限制，無法直接讀取官方來源。官方資料本身可用，但此 local-first 前端版本可能需要 CSV 匯入或 serverless proxy 才能自動更新。";
 const YUANTA_0050_PCF_WEIGHT_WARNING =
   "已找到官方 PCF 資料，但缺少可直接用於穿透分析的權重欄位，因此暫不自動覆蓋成分股。";
 const COMPLETE_0050_ROW_THRESHOLD = 20;
@@ -124,12 +127,54 @@ const createAttemptedSource = (
   url: string,
   status: EtfHoldingsAttemptedSource["status"],
   notes?: string,
+  error?: unknown,
 ): EtfHoldingsAttemptedSource => ({
   label,
   url,
   status,
   notes,
+  errorName: error instanceof Error ? error.name : undefined,
+  errorMessage: error instanceof Error ? error.message : undefined,
+  corsLikeFailure: isCorsLikeFetchError(error),
 });
+
+const getRuntimeDiagnostics = (testedAt: string): EtfHoldingsRuntimeDiagnostics => {
+  if (typeof window === "undefined") {
+    return {
+      executionEnvironment: "server-or-shell",
+      siteEnvironment: "unknown",
+      testedAt,
+    };
+  }
+
+  const hostname = window.location.hostname;
+  const isLocalDev =
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1";
+
+  return {
+    executionEnvironment: "browser",
+    siteEnvironment: isLocalDev ? "local-dev" : "deployed-site",
+    origin: window.location.origin,
+    testedAt,
+  };
+};
+
+const isCorsLikeFetchError = (error: unknown) => {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const message = error.message.toLowerCase();
+  return (
+    error.name === "TypeError" ||
+    message.includes("failed to fetch") ||
+    message.includes("load failed") ||
+    message.includes("networkerror") ||
+    message.includes("cors")
+  );
+};
 
 const createFetchResult = ({
   asOfDate,
@@ -140,6 +185,7 @@ const createFetchResult = ({
   errors,
   fetchedAt,
   attemptedSources,
+  runtimeDiagnostics,
 }: {
   asOfDate?: string;
   source: string;
@@ -149,6 +195,7 @@ const createFetchResult = ({
   errors: string[];
   fetchedAt: string;
   attemptedSources: EtfHoldingsAttemptedSource[];
+  runtimeDiagnostics: EtfHoldingsRuntimeDiagnostics;
 }): EtfHoldingsFetchResult => {
   const safeToSave = isSafeToSave0050Result(constituents);
   const supportLevel = safeToSave
@@ -172,6 +219,7 @@ const createFetchResult = ({
     attemptedSources,
     supportLevel,
     safeToSave,
+    runtimeDiagnostics,
   };
 };
 
@@ -354,6 +402,7 @@ const fetchText = async (url: string, accept: string) => {
 
 export async function fetchYuanta0050Holdings(): Promise<EtfHoldingsFetchResult> {
   const fetchedAt = new Date().toISOString();
+  const runtimeDiagnostics = getRuntimeDiagnostics(fetchedAt);
   const attemptedSources: EtfHoldingsAttemptedSource[] = [];
 
   try {
@@ -385,14 +434,21 @@ export async function fetchYuanta0050Holdings(): Promise<EtfHoldingsFetchResult>
       errors: [],
       fetchedAt,
       attemptedSources,
+      runtimeDiagnostics,
     });
   } catch (error) {
+    const corsLikeFailure = isCorsLikeFetchError(error);
     attemptedSources.push(
       createAttemptedSource(
         "元大 0050 PCF/Daily 官方 JSON",
         YUANTA_0050_PCF_API_URL,
-        "blocked_by_cors",
-        error instanceof Error ? error.message : "瀏覽器 fetch 失敗。",
+        corsLikeFailure ? "blocked_by_cors" : "unsupported",
+        corsLikeFailure
+          ? YUANTA_0050_BROWSER_CORS_MESSAGE
+          : error instanceof Error
+            ? error.message
+            : "瀏覽器 fetch 失敗。",
+        error,
       ),
     );
   }
@@ -428,14 +484,21 @@ export async function fetchYuanta0050Holdings(): Promise<EtfHoldingsFetchResult>
       errors: [],
       fetchedAt,
       attemptedSources,
+      runtimeDiagnostics,
     });
   } catch (error) {
+    const corsLikeFailure = isCorsLikeFetchError(error);
     attemptedSources.push(
       createAttemptedSource(
         "元大 0050 持股比重頁",
         YUANTA_0050_HOLDINGS_URL,
-        "blocked_by_cors",
-        error instanceof Error ? error.message : "瀏覽器 fetch 失敗。",
+        corsLikeFailure ? "blocked_by_cors" : "unsupported",
+        corsLikeFailure
+          ? YUANTA_0050_BROWSER_CORS_MESSAGE
+          : error instanceof Error
+            ? error.message
+            : "瀏覽器 fetch 失敗。",
+        error,
       ),
     );
   }
@@ -448,5 +511,6 @@ export async function fetchYuanta0050Holdings(): Promise<EtfHoldingsFetchResult>
     errors: [YUANTA_0050_FALLBACK_MESSAGE],
     fetchedAt,
     attemptedSources,
+    runtimeDiagnostics,
   });
 }

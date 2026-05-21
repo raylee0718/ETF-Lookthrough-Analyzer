@@ -24,6 +24,16 @@ export type EtfHoldingsAttemptedSource = {
   url: string;
   status: EtfHoldingsProviderSupportLevel;
   notes?: string;
+  errorName?: string;
+  errorMessage?: string;
+  corsLikeFailure?: boolean;
+};
+
+export type EtfHoldingsRuntimeDiagnostics = {
+  executionEnvironment: "browser" | "server-or-shell";
+  siteEnvironment: "local-dev" | "deployed-site" | "unknown";
+  origin?: string;
+  testedAt: string;
 };
 
 export type EtfHoldingsFetchResult = {
@@ -39,6 +49,7 @@ export type EtfHoldingsFetchResult = {
   attemptedSources?: EtfHoldingsAttemptedSource[];
   supportLevel?: EtfHoldingsProviderSupportLevel;
   safeToSave?: boolean;
+  runtimeDiagnostics?: EtfHoldingsRuntimeDiagnostics;
 };
 
 export type EtfProviderConfig = {
