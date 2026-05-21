@@ -36,6 +36,7 @@ const YUANTA_0050_PCF_API_URL =
 const YUANTA_0050_RATIO_SOURCE_LABEL = "元大投信 0050 持股比重頁";
 const YUANTA_0050_PCF_SOURCE_LABEL = "元大投信 0050 申購買回清單";
 const UPAMC_00981A_PCF_SOURCE_LABEL = "統一投信 00981A 官方 PCF";
+const FSITC_00994A_HOLDINGS_SOURCE_LABEL = "第一金投信 00994A 官方持股資料";
 const YUANTA_0050_FALLBACK_MESSAGE =
   "0050 官方資料來源目前無法由瀏覽器直接穩定取得，請先使用 CSV 匯入。";
 const YUANTA_0050_CORS_MESSAGE =
@@ -77,6 +78,20 @@ export type ParsedUniPresident00981APcfResponse = {
   errors: string[];
 };
 
+export type First00994AGetHdParserContext = {
+  etfSymbol?: "00994A";
+  source?: string;
+  asOfDate?: string;
+};
+
+export type ParsedFirst00994AGetHdResponse = {
+  asOfDate?: string;
+  source: string;
+  constituents: EtfConstituent[];
+  warnings: string[];
+  errors: string[];
+};
+
 type ParsedHoldingRow = {
   stockSymbol: string;
   stockName: string;
@@ -103,6 +118,21 @@ type UniPresidentPcfResponse = {
   fund?: unknown;
   asset?: unknown;
   Data?: unknown;
+};
+
+type FirstGetHdOuterResponse = {
+  d?: unknown;
+};
+
+type FirstGetHdRow = {
+  fundid?: unknown;
+  sdate?: unknown;
+  group?: unknown;
+  A?: unknown;
+  B?: unknown;
+  C?: unknown;
+  D?: unknown;
+  E?: unknown;
 };
 
 type YuantaPcfStockWeight = {
@@ -182,10 +212,11 @@ export function getKnownTaiwanEtfProviderCapabilities(): KnownTaiwanEtfProviderC
       ],
       candidateSourceNotes: [
         "已找到第一金投信官方 FundDetail AJAX：POST /WebAPI.aspx/Get_hd，可回傳股票代號、名稱、持股權重與股數。",
+        "00994A 官方 Get_hd JSON parser POC 已可將 group=1 股票列轉成 EtfConstituent[]。",
         "TWSE ETF productContent 可確認 00994A 的官方 PCF 入口指向第一金 FundDetail 申購買回清單頁。",
-        "官方 JSON 端點未回 CORS header，前端瀏覽器自動化可能需要 serverless proxy；本步驟暫不接 parser/provider。",
+        "官方 JSON 端點未回 CORS header，前端瀏覽器自動化可能需要 serverless proxy；本步驟仍不接 production provider。",
       ],
-      recommendedFallback: "目前仍建議 CSV 匯入；下一步可做 00994A parser proof-of-concept。",
+      recommendedFallback: "目前仍建議 CSV 匯入；下一步是評估 serverless proxy 或 parser proof-of-concept 的部署方式。",
     },
   ];
 }
@@ -286,6 +317,118 @@ const parseJsonLikeResponse = (raw: unknown): { data?: unknown; error?: string }
 
   return { data: raw };
 };
+
+const parseFirst00994AGetHdRows = (
+  raw: unknown,
+): { rows: FirstGetHdRow[]; error?: string } => {
+  const outer = parseJsonLikeResponse(raw);
+  if (outer.error) {
+    return { rows: [], error: "00994A Get_hd 回應不是可解析的 JSON。" };
+  }
+
+  const outerData = outer.data as FirstGetHdOuterResponse | FirstGetHdRow[];
+  const innerData = Array.isArray(outerData)
+    ? outerData
+    : (outerData as FirstGetHdOuterResponse).d;
+
+  if (typeof innerData === "string") {
+    const inner = parseJsonLikeResponse(innerData);
+    if (inner.error) {
+      return { rows: [], error: "00994A Get_hd 的 d 欄位不是可解析的 JSON string。" };
+    }
+
+    return {
+      rows: Array.isArray(inner.data) ? (inner.data as FirstGetHdRow[]) : [],
+    };
+  }
+
+  return {
+    rows: Array.isArray(innerData) ? (innerData as FirstGetHdRow[]) : [],
+  };
+};
+
+const getFirst00994AAsOfDate = (
+  rows: FirstGetHdRow[],
+  contextDate?: string,
+) => {
+  const contextAsOfDate = normalizeDateString(contextDate);
+  if (contextAsOfDate) {
+    return contextAsOfDate;
+  }
+
+  return rows.map((row) => normalizeDateString(row.sdate)).find(Boolean);
+};
+
+export function parseFirst00994AGetHdResponse(
+  raw: unknown,
+  context: First00994AGetHdParserContext = {},
+): ParsedFirst00994AGetHdResponse {
+  const source = context.source ?? FSITC_00994A_HOLDINGS_SOURCE_LABEL;
+  const warnings: string[] = [];
+  const errors: string[] = [];
+  const { rows, error } = parseFirst00994AGetHdRows(raw);
+
+  if (error) {
+    return {
+      source,
+      constituents: [],
+      warnings,
+      errors: [error],
+    };
+  }
+
+  const stockRows = rows.filter((row) => String(row.group ?? "").trim() === "1");
+  const asOfDate = getFirst00994AAsOfDate(stockRows.length > 0 ? stockRows : rows, context.asOfDate);
+
+  if (rows.length === 0) {
+    errors.push("00994A Get_hd JSON 沒有可解析的資料列。");
+  }
+
+  if (rows.length > 0 && stockRows.length === 0) {
+    errors.push("00994A Get_hd JSON 找不到 group=1 的股票持股列。");
+  }
+
+  if (!asOfDate) {
+    warnings.push("無法從 00994A Get_hd JSON 判讀資料日期。");
+  }
+
+  const constituents = stockRows.flatMap((row, index): EtfConstituent[] => {
+    const stockSymbol = normalizeStockSymbol(String(row.A ?? ""));
+    const stockName = String(row.B ?? "").trim();
+    const weightPercent = parseWeight(row.C);
+
+    if (!stockSymbol || !stockName || !weightPercent) {
+      warnings.push(
+        `00994A Get_hd 股票明細第 ${index + 1} 筆缺少有效代號、名稱或 C 欄持股權重，已略過。`,
+      );
+      return [];
+    }
+
+    return [
+      {
+        id: `provider-poc-00994A-${stockSymbol}-${index}`,
+        etfSymbol: context.etfSymbol ?? "00994A",
+        stockSymbol,
+        stockName,
+        weightPercent,
+        asOfDate,
+        source,
+      },
+    ];
+  });
+
+  if (stockRows.length > 0 && constituents.length === 0) {
+    errors.push("00994A Get_hd JSON 有股票明細，但沒有任何列含有效 C 欄持股權重。");
+  }
+
+  return {
+    asOfDate,
+    source,
+    constituents,
+    warnings,
+    errors,
+  };
+}
 
 const getUniPresident00981AStockDetails = (
   data: UniPresidentPcfResponse,

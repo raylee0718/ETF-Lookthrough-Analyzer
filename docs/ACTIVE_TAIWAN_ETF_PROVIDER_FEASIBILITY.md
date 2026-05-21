@@ -277,11 +277,70 @@ Step 31 針對第一金投信與 TWSE 官方來源做深度驗證。結論是：
 - MVP current action：仍使用 CSV 匯入。
 - 下一步：實作 00994A parser proof-of-concept；若要接 production provider，再評估 serverless proxy。
 
+## 00994A Parser POC
+
+Step 32 已加入純 parser proof-of-concept，用來驗證「第一金投信官方 `Get_hd` JSON -> `EtfConstituent[]`」的資料轉換。此步驟不會在瀏覽器 UI 呼叫官方端點，也不會提供 00994A 的儲存 provider 結果按鈕。
+
+### Parser status
+
+- parser function：`parseFirst00994AGetHdResponse`
+- sample fixture：`src/data/sample00994AGetHdResponse.ts`
+- smoke utility：`runSample00994AParserSmokeTest`
+- official endpoint：`https://www.fsitc.com.tw/WebAPI.aspx/Get_hd`
+- request method：`POST`
+- request body example：`{"pStrFundID":"182","pStrDate":""}`
+
+### Holdings row location
+
+Parser 只依 Step 31 驗證到的官方 JSON 結構解析：
+
+1. 外層 JSON：`{ "d": "[...]" }`
+2. 內層 `d`：JSON string，解析後為 array。
+3. 股票持股列：`row.group === "1"`。
+
+目前不解析畫面 HTML，也不解析第三方網站資料。
+
+### Normalized output fields
+
+- `etfSymbol`：`00994A`
+- `stockSymbol`：從 `A` 取得，會 trim、轉大寫並移除 `.TW` / `.TWO` 等尾碼。
+- `stockName`：從 `B` 取得。
+- `weightPercent`：從 `C` / 「持股權重」取得，支援 number、`"3.25"`、`"3.25%"`，無效或空值不會補假資料。
+- `asOfDate`：優先使用 context 傳入日期，其次使用股票列或其他列的 `sdate`。
+- `source`：預設 `第一金投信 00994A 官方持股資料`。
+
+### Stock fields
+
+- `A`：股票代號，可映射為 `stockSymbol`。
+- `B`：股票名稱，可映射為 `stockName`。
+- `C`：持股權重，可映射為 `weightPercent`。
+- `D`：股數，只作為診斷資訊；目前不寫入 `EtfConstituent`。
+- `sdate`：資料日期，可映射為 `asOfDate`。
+
+### Invalid row handling
+
+- 若外層 JSON 或內層 `d` JSON string 無法解析，回傳 `errors`。
+- 若找不到任何資料列或找不到 `group=1` 股票列，回傳 `errors`。
+- 若單列缺少有效股票代號、名稱或 `C` 欄持股權重，該列會被略過並加入 `warnings`。
+- 若 JSON 有股票明細但沒有任何有效權重，回傳 `errors`。
+- Parser 不會用股數推估或偽造權重。
+
+### 為什麼仍不是 production frontend provider
+
+- 官方 `Get_hd` 端點 shell 可讀，但沒有回傳 CORS header。
+- 前端瀏覽器直接跨網域呼叫 `Get_hd` 仍可能被 CORS / preflight 阻擋。
+- 目前沒有 serverless proxy，也沒有把 00994A 接到 UI auto-fetch / save flow。
+- MVP fallback 仍是 CSV 匯入。
+
+### 下一步
+
+若要往自動化前進，建議先評估極薄 serverless proxy，讓 proxy 負責呼叫官方 `Get_hd`，前端只接收已正規化或可解析的官方 JSON；在 proxy / parser 實機穩定前，不應把 00994A 顯示成 production-ready provider。
+
 ## 總結
 
 | ETF | 決策 | 原因 | 下一步 |
 | --- | --- | --- | --- |
 | 00981A | `needs_serverless_proxy` | 官方 PCF AJAX 已確認含完整股票明細與 `NavRate` 權重，且 parser POC 已可正規化；但瀏覽器 CORS 可能阻擋 | 先用 CSV；下一步評估 serverless proxy |
-| 00994A | `ready_for_parser_poc` | 第一金官方 FundDetail AJAX 已確認含完整股票明細與持股權重，但瀏覽器 CORS 可能阻擋 | 先用 CSV；下一步做 00994A parser proof-of-concept，production provider 需評估 proxy |
+| 00994A | `ready_for_parser_poc` | 第一金官方 FundDetail AJAX 已確認含完整股票明細與持股權重，且 parser POC 已可正規化；但瀏覽器 CORS 可能阻擋 | 先用 CSV；production provider 需評估 proxy |
 
-兩檔目前都不建議直接實作 production frontend provider。00981A 已有 parser POC；00994A 已找到可進 parser POC 的官方來源。若只有 shell 可讀、瀏覽器不可讀，再評估 serverless proxy。
+兩檔目前都不建議直接實作 production frontend provider。00981A 與 00994A 都已有 parser POC；若只有 shell 可讀、瀏覽器不可讀，再評估 serverless proxy。
