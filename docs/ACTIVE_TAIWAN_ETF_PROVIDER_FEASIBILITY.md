@@ -344,3 +344,38 @@ Parser 只依 Step 31 驗證到的官方 JSON 結構解析：
 | 00994A | `ready_for_parser_poc` | 第一金官方 FundDetail AJAX 已確認含完整股票明細與持股權重，且 parser POC 已可正規化；但瀏覽器 CORS 可能阻擋 | 先用 CSV；production provider 需評估 proxy |
 
 兩檔目前都不建議直接實作 production frontend provider。00981A 與 00994A 都已有 parser POC；若只有 shell 可讀、瀏覽器不可讀，再評估 serverless proxy。
+
+## Serverless Proxy 評估
+
+Step 33 已加入極薄 Vercel serverless proxy：`api/etf-holdings.ts`。
+
+Endpoint examples：
+
+- `/api/etf-holdings?symbol=0050`
+- `/api/etf-holdings?symbol=00981A`
+- `/api/etf-holdings?symbol=00994A`
+
+設計限制：
+
+- 只接受 `0050`、`00981A`、`00994A` 三個白名單 symbol。
+- 只用 `GET` 對前端開放；serverless function 內部可依官方 issuer endpoint 需要發出 `POST`。
+- 不接受 user-provided URL，因此不是任意 proxy。
+- 不需要 secrets 或 `.env`。
+- 不存 user data、不登入、不使用 database、不排程、不做背景更新。
+- cache header 使用短期 CDN cache：`s-maxage=1800, stale-while-revalidate=1800`。
+
+目前 proxy 回傳 normalized constituents，而不是 raw official JSON。Parser helpers 沿用現有 POC exports：
+
+- `0050`：`parseYuanta0050PcfResponse`
+- `00981A`：`parseUniPresident00981APcfResponse`
+- `00994A`：`parseFirst00994AGetHdResponse`
+
+Supported source mapping：
+
+| Symbol | Official source | Request | Parser | Status |
+| --- | --- | --- | --- | --- |
+| `0050` | `https://etfapi.yuantaetfs.com/ectranslation/api/bridge?...ticker=0050&ndate=` | GET | `parseYuanta0050PcfResponse` | Implemented |
+| `00981A` | `https://www.ezmoney.com.tw/ETF/Transaction/GetPCF` | POST `{"fundCode":"49YTW","date":"<Taipei Minguo date>","specificDate":true}` | `parseUniPresident00981APcfResponse` | Implemented with endpoint error reporting |
+| `00994A` | `https://www.fsitc.com.tw/WebAPI.aspx/Get_hd` | POST `{"pStrFundID":"182","pStrDate":""}` | `parseFirst00994AGetHdResponse` | Implemented |
+
+Local-first note：proxy 只接收 ETF symbol，例如 `symbol=00994A`。使用者 portfolio、交易、價格、手動 / CSV 匯入的 ETF constituents 仍留在 browser localStorage。Step 33 沒有加入 production auto-fetch UI，也沒有加入 one-click update all ETFs。

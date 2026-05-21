@@ -225,3 +225,28 @@ Step 26 後，主要導覽聚焦在原始 MVP 流程：
 交易紀錄、價格表、價格自動化、備份匯出、Dashboard 與 ETF 重疊頁仍保留在程式碼中，也可從「進階工具」進入，但它們不是 MVP 主要流程的必要條件。MVP 不需要交易紀錄或價格自動化；使用者可以先用手動持股市值、CSV ETF 成分股匯入與穿透分析完成核心任務。
 
 本專案仍應維持個人 ETF 穿透分析工具定位，不應擴張成 active ETF research platform。
+
+## Serverless Proxy 評估
+
+Step 33 新增 Vercel serverless function：`/api/etf-holdings?symbol=0050`、`/api/etf-holdings?symbol=00981A`、`/api/etf-holdings?symbol=00994A`。這個 proxy 的目的只是讓 Vercel server-side 去讀官方 issuer endpoint，避免瀏覽器 CORS 阻擋；API 只接受白名單 ETF symbol，不接受任意 URL。
+
+Proxy 目前會回傳 normalized constituents，response 包含 `symbol`、`status`、`source`、`sourceUrl`、`fetchedAt`、`asOfDate`、`constituents`、`warnings`、`errors`。已加入短期 cache header：`s-maxage=1800, stale-while-revalidate=1800`。
+
+支援狀態：
+- `0050`：元大官方 PCF/Daily JSON，使用既有 `parseYuanta0050PcfResponse`。
+- `00981A`：統一投信官方 `POST https://www.ezmoney.com.tw/ETF/Transaction/GetPCF`，使用既有 `parseUniPresident00981APcfResponse`。本機 Node fetch 對此 endpoint 曾出現 network-level failure；proxy 會以清楚的 `failed` response 回報。
+- `00994A`：第一金投信官方 `POST https://www.fsitc.com.tw/WebAPI.aspx/Get_hd`，body 為 `{"pStrFundID":"182","pStrDate":""}`，使用既有 `parseFirst00994AGetHdResponse`。
+
+Proxy 不做的事：
+- 不儲存 user data。
+- 不需要 login。
+- 不使用 database。
+- 不做 scheduled job 或 background automation。
+- 不提供 arbitrary URL proxy。
+- 不會自動改寫 ETF constituents，也沒有 production auto-fetch UI。
+
+Local-first note：使用者 portfolio、交易、價格與 ETF constituents 仍保存在 browser localStorage。呼叫 proxy 時，離開瀏覽器的只有 ETF symbol request，例如 `symbol=00994A`。
+
+Local / Vercel 測試：
+- deployed：開啟 `/api/etf-holdings?symbol=00994A` 或 `/api/etf-holdings?symbol=0050`。
+- local：若有 Vercel CLI，可用 `vercel dev` 後測 `/api/etf-holdings?symbol=00994A`；一般 `npm run dev` 只啟動 Vite frontend，不會執行 Vercel function。
