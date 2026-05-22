@@ -3,6 +3,19 @@ import type {
   EtfHoldingsProxySymbol,
 } from "../types/etfHoldingsProxy";
 
+export class EtfHoldingsProxyClientError extends Error {
+  payload?: EtfHoldingsProxyResponse | { errors?: string[]; message?: string };
+
+  constructor(
+    message: string,
+    payload?: EtfHoldingsProxyResponse | { errors?: string[]; message?: string },
+  ) {
+    super(message);
+    this.name = "EtfHoldingsProxyClientError";
+    this.payload = payload;
+  }
+}
+
 export async function fetchEtfHoldingsViaProxy(
   symbol: EtfHoldingsProxySymbol,
 ): Promise<EtfHoldingsProxyResponse> {
@@ -28,7 +41,7 @@ export async function fetchEtfHoldingsViaProxy(
           ? payload.message
           : `ETF holdings proxy request failed with HTTP ${response.status}.`;
 
-    throw new Error(message);
+    throw new EtfHoldingsProxyClientError(message, payload);
   }
 
   return payload as EtfHoldingsProxyResponse;

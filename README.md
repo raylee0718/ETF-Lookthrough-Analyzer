@@ -253,3 +253,17 @@ Local / Vercel 測試：
 - deployed：開啟 `/api/etf-holdings?symbol=00994A` 或 `/api/etf-holdings?symbol=0050`。
 - local：若有 Vercel CLI，可用 `vercel dev` 後測 `/api/etf-holdings?symbol=00994A`；一般 `npm run dev` 只啟動 Vite frontend，不會執行 Vercel function。
 - Step 34 deployed API testing notes：`docs/VERCEL_API_TESTING.md`。
+
+## MVP 一鍵更新 ETF 成分股
+
+Step 36 在「ETF 成分股」頁加入 MVP 一鍵更新流程，優先支援 `0050` 與 `00981A`。資料透過本專案 Vercel proxy 讀取官方來源，前端只取得正規化後的成分股資料。
+
+使用流程：
+
+- 點選「更新 0050 元大台灣50」或「更新 00981A 主動統一台股增長」。
+- 先看預覽：狀態、資料日期、成分股筆數、權重合計、warnings / errors 與前 10 筆成分股。
+- 只有在至少 20 筆、權重有效、且沒有 errors 時，才能按「儲存並取代此 ETF 成分股」。
+- 儲存前會再次確認；確認後只會取代該 ETF 的 localStorage 成分股資料。
+- `00981A` 目前可能回傳 `partial`，只要沒有 errors 且資料量與權重有效，允許使用者確認 warnings 後儲存。
+
+`00994A` 已非目前使用者優先標的，保留為低優先度 / CSV fallback，不作為 MVP 一鍵更新主按鈕。CSV / 貼上表格匯入仍保留作為備援。

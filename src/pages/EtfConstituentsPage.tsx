@@ -8,6 +8,10 @@ import {
   fetchEtfHoldingsByConfig,
   getEtfProviderCapabilityNotes,
 } from "../lib/etfHoldingsProviders";
+import {
+  EtfHoldingsProxyClientError,
+  fetchEtfHoldingsViaProxy,
+} from "../lib/etfHoldingsProxyClient";
 import { formatPercent } from "../lib/formatters";
 import {
   getKnownTaiwanEtfProviderCapabilities,
@@ -21,6 +25,10 @@ import type {
   EtfHoldingsProviderType,
   EtfProviderConfig,
 } from "../types/etfProvider";
+import type {
+  EtfHoldingsProxyResponse,
+  EtfHoldingsProxySymbol,
+} from "../types/etfHoldingsProxy";
 import type { EtfConstituent, PortfolioHolding } from "../types/portfolio";
 
 const sourceOptions = ["投信官網", "公開說明書", "手動整理", "其他"];
@@ -161,6 +169,46 @@ type DataQualityWarning = {
   message: string;
 };
 
+type ProxyUpdateError = {
+  message: string;
+  payload?: EtfHoldingsProxyResponse | { errors?: string[]; message?: string };
+};
+
+type PriorityProxyEtf = {
+  symbol: Extract<EtfHoldingsProxySymbol, "0050" | "00981A">;
+  name: string;
+  buttonLabel: string;
+};
+
+const priorityProxyEtfs: PriorityProxyEtf[] = [
+  {
+    symbol: "0050",
+    name: "元大台灣50",
+    buttonLabel: "更新 0050 元大台灣50",
+  },
+  {
+    symbol: "00981A",
+    name: "主動統一台股增長",
+    buttonLabel: "更新 00981A 主動統一台股增長",
+  },
+];
+
+const getProxyResultWeightTotal = (result: EtfHoldingsProxyResponse) =>
+  result.constituents.reduce(
+    (sum, constituent) => sum + constituent.weightPercent,
+    0,
+  );
+
+const isProxyResultSafeToSave = (result: EtfHoldingsProxyResponse) =>
+  (result.status === "ok" || result.status === "partial") &&
+  result.errors.length === 0 &&
+  result.constituents.length >= 20 &&
+  result.constituents.every(
+    (constituent) =>
+      Number.isFinite(constituent.weightPercent) &&
+      constituent.weightPercent > 0,
+  );
+
 const splitDelimitedLine = (line: string, delimiter: "," | "\t") => {
   if (delimiter === "\t") {
     return line.split("\t").map((cell) => cell.trim());
@@ -242,6 +290,16 @@ export default function EtfConstituentsPage({
     Record<string, EtfHoldingsFetchResult>
   >({});
   const [testingProviderSymbol, setTestingProviderSymbol] = useState("");
+  const [proxyUpdateResults, setProxyUpdateResults] = useState<
+    Partial<Record<PriorityProxyEtf["symbol"], EtfHoldingsProxyResponse>>
+  >({});
+  const [proxyUpdateErrors, setProxyUpdateErrors] = useState<
+    Partial<Record<PriorityProxyEtf["symbol"], ProxyUpdateError>>
+  >({});
+  const [loadingProxySymbol, setLoadingProxySymbol] = useState<
+    PriorityProxyEtf["symbol"] | ""
+  >("");
+  const [proxySaveMessage, setProxySaveMessage] = useState("");
 
   const normalizedEtfSymbol = etfSymbol.trim().toUpperCase();
 
@@ -571,6 +629,75 @@ export default function EtfConstituentsPage({
     setSelectedEtfSymbol(result.etfSymbol);
   };
 
+  const handleFetchProxyUpdate = async (symbol: PriorityProxyEtf["symbol"]) => {
+    setLoadingProxySymbol(symbol);
+    setProxySaveMessage("");
+    setProxyUpdateErrors((currentErrors) => ({
+      ...currentErrors,
+      [symbol]: undefined,
+    }));
+
+    try {
+      const result = await fetchEtfHoldingsViaProxy(symbol);
+      setProxyUpdateResults((currentResults) => ({
+        ...currentResults,
+        [symbol]: result,
+      }));
+    } catch (error) {
+      setProxyUpdateResults((currentResults) => ({
+        ...currentResults,
+        [symbol]: undefined,
+      }));
+      const payload =
+        error instanceof EtfHoldingsProxyClientError
+          ? error.payload
+          : undefined;
+      setProxyUpdateErrors((currentErrors) => ({
+        ...currentErrors,
+        [symbol]: {
+          message:
+            error instanceof Error
+              ? error.message
+              : "更新失敗，請改用 CSV 匯入或稍後再試。",
+          payload,
+        },
+      }));
+    } finally {
+      setLoadingProxySymbol("");
+    }
+  };
+
+  const handleSaveProxyResult = (result: EtfHoldingsProxyResponse) => {
+    if (!isProxyResultSafeToSave(result)) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `這會取代目前儲存的 ${result.symbol} 成分股資料，是否繼續？`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    replaceConstituentsForEtf(
+      result.symbol,
+      result.constituents.map((constituent) => ({
+        etfSymbol: result.symbol,
+        stockSymbol: constituent.stockSymbol,
+        stockName: constituent.stockName,
+        weightPercent: constituent.weightPercent,
+        industry: constituent.industry,
+        asOfDate: constituent.asOfDate ?? result.asOfDate,
+        source: constituent.source ?? result.source,
+      })),
+    );
+    setSelectedEtfSymbol(result.symbol);
+    setProxySaveMessage(
+      `已更新 ${result.symbol} 成分股，請到「穿透分析」查看最新曝險。`,
+    );
+  };
+
   return (
     <main className="min-h-screen bg-stone-100 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
@@ -602,6 +729,216 @@ export default function EtfConstituentsPage({
             此工具保留每檔 ETF 目前儲存的成分股資料；重新匯入同一檔 ETF 會取代該 ETF 的現有清單。穿透分析預設使用每檔 ETF 最新資料日期的成分股。
           </p>
         </section>
+
+        <SectionCard
+          title="一鍵更新 ETF 成分股"
+          description="目前優先支援 0050 與 00981A。資料來自官方來源，透過本專案的 Vercel proxy 取得。若更新失敗，仍可使用 CSV / 貼上表格匯入。"
+        >
+          <div className="grid gap-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              {priorityProxyEtfs.map((etf) => {
+                const result = proxyUpdateResults[etf.symbol];
+                const fetchError = proxyUpdateErrors[etf.symbol];
+                const isLoading = loadingProxySymbol === etf.symbol;
+                const isSafeToSave = result
+                  ? isProxyResultSafeToSave(result)
+                  : false;
+                const weightTotal = result
+                  ? getProxyResultWeightTotal(result)
+                  : 0;
+
+                return (
+                  <article
+                    className="rounded-lg border border-stone-200 bg-stone-50 p-4"
+                    key={etf.symbol}
+                  >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-xs font-medium text-blue-700">
+                          {etf.symbol}
+                        </p>
+                        <h3 className="mt-1 text-base font-semibold text-slate-950">
+                          {etf.name}
+                        </h3>
+                      </div>
+                      <button
+                        className="rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                        disabled={isLoading || Boolean(loadingProxySymbol)}
+                        onClick={() => handleFetchProxyUpdate(etf.symbol)}
+                        type="button"
+                      >
+                        {isLoading ? "更新中..." : etf.buttonLabel}
+                      </button>
+                    </div>
+
+                    {fetchError ? (
+                      <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm leading-6 text-red-800">
+                        <p className="font-semibold">
+                          更新失敗，請改用 CSV 匯入或稍後再試。
+                        </p>
+                        <details className="mt-2">
+                          <summary className="cursor-pointer font-medium">
+                            技術錯誤
+                          </summary>
+                          <p className="mt-2 break-words">{fetchError.message}</p>
+                          {fetchError.payload ? (
+                            <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-white p-3 text-xs text-slate-700">
+                              {JSON.stringify(fetchError.payload, null, 2)}
+                            </pre>
+                          ) : null}
+                        </details>
+                      </div>
+                    ) : null}
+
+                    {result ? (
+                      <div className="mt-4 grid gap-4 text-sm">
+                        <div className="grid gap-3 rounded-lg border border-stone-200 bg-white p-3 sm:grid-cols-2">
+                          <p>
+                            <span className="text-slate-500">ETF 代號：</span>
+                            <span className="font-semibold text-slate-950">
+                              {result.symbol}
+                            </span>
+                          </p>
+                          <p>
+                            <span className="text-slate-500">狀態：</span>
+                            <span className="font-semibold text-slate-950">
+                              {result.status}
+                            </span>
+                          </p>
+                          <p>
+                            <span className="text-slate-500">資料日期：</span>
+                            <span className="font-semibold text-slate-950">
+                              {result.asOfDate ?? "-"}
+                            </span>
+                          </p>
+                          <p>
+                            <span className="text-slate-500">成分股筆數：</span>
+                            <span className="font-semibold text-slate-950">
+                              {result.constituents.length}
+                            </span>
+                          </p>
+                          <p>
+                            <span className="text-slate-500">權重合計：</span>
+                            <span className="font-semibold text-slate-950">
+                              {formatPercent(weightTotal)}
+                            </span>
+                          </p>
+                          <p>
+                            <span className="text-slate-500">來源：</span>
+                            <span className="font-semibold text-slate-950">
+                              {result.source}
+                            </span>
+                          </p>
+                        </div>
+
+                        {result.status === "partial" ? (
+                          <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
+                            此來源回傳 partial，請確認 warnings 後再儲存。
+                          </p>
+                        ) : null}
+
+                        {result.warnings.length > 0 ? (
+                          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 leading-6 text-amber-900">
+                            <p className="font-semibold">Warnings</p>
+                            <div className="mt-2 grid gap-1">
+                              {result.warnings.map((warning) => (
+                                <p key={warning}>- {warning}</p>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {result.errors.length > 0 ? (
+                          <div className="rounded-lg border border-red-200 bg-red-50 p-3 leading-6 text-red-800">
+                            <p className="font-semibold">Errors</p>
+                            <div className="mt-2 grid gap-1">
+                              {result.errors.map((error) => (
+                                <p key={error}>- {error}</p>
+                              ))}
+                            </div>
+                            {result.debug ? (
+                              <details className="mt-2">
+                                <summary className="cursor-pointer font-medium">
+                                  Debug
+                                </summary>
+                                <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-white p-3 text-xs text-slate-700">
+                                  {JSON.stringify(result.debug, null, 2)}
+                                </pre>
+                              </details>
+                            ) : null}
+                          </div>
+                        ) : null}
+
+                        <div className="overflow-x-auto">
+                          <table className="w-full min-w-[560px] text-left text-sm">
+                            <thead>
+                              <tr className="border-b border-stone-200 text-slate-500">
+                                <th className="pb-2 font-medium">股票代號</th>
+                                <th className="pb-2 font-medium">股票名稱</th>
+                                <th className="pb-2 text-right font-medium">
+                                  權重
+                                </th>
+                                <th className="pb-2 font-medium">產業</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {result.constituents
+                                .slice(0, 10)
+                                .map((constituent) => (
+                                  <tr
+                                    className="border-b border-stone-100 last:border-0"
+                                    key={`${result.symbol}-${constituent.stockSymbol}`}
+                                  >
+                                    <td className="py-3 font-semibold text-slate-950">
+                                      {constituent.stockSymbol}
+                                    </td>
+                                    <td className="py-3 text-slate-700">
+                                      {constituent.stockName}
+                                    </td>
+                                    <td className="py-3 text-right font-medium text-slate-950">
+                                      {formatPercent(constituent.weightPercent)}
+                                    </td>
+                                    <td className="py-3 text-slate-600">
+                                      {constituent.industry ?? "-"}
+                                    </td>
+                                  </tr>
+                                ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        <button
+                          className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-300 sm:w-fit"
+                          disabled={!isSafeToSave}
+                          onClick={() => handleSaveProxyResult(result)}
+                          type="button"
+                        >
+                          儲存並取代此 ETF 成分股
+                        </button>
+
+                        {!isSafeToSave ? (
+                          <p className="rounded-lg border border-stone-200 bg-white p-3 text-slate-600">
+                            只有在有至少 20 筆成分股、每筆權重有效，且沒有 errors 時才能儲存。
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+
+            <p className="rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm leading-6 text-slate-600">
+              00994A 已非目前優先標的，保留為低優先度 / CSV fallback，不顯示為主要更新按鈕。
+            </p>
+
+            {proxySaveMessage ? (
+              <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-900">
+                {proxySaveMessage}
+              </p>
+            ) : null}
+          </div>
+        </SectionCard>
 
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
