@@ -46,9 +46,11 @@ Record these fields for each supported route:
 
 | Symbol | HTTP status | response `status` | constituent count | asOfDate | warnings | errors | Ready for UI integration |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `0050` |  |  |  |  |  |  |  |
-| `00981A` |  |  |  |  |  |  |  |
-| `00994A` |  |  |  |  |  |  |  |
+| `0050` | `200` | `ok` | `50` | `2026-05-22` | none | none | yes |
+| `00981A` | `502` | `failed` | `0` | none | none | `Uni-President 00981A official PCF fetch failed. fetch failed`; likely issuer/runtime network policy | no |
+| `00994A` | `200` | `partial` | `40` | `2026-05-22` | skipped 2 invalid official `Get_hd` rows | none | yes for diagnostic UI; keep warnings visible |
+
+Latest deployed test timestamp: `2026-05-22 17:23 Asia/Taipei`.
 
 ## If 00981A Fails
 
