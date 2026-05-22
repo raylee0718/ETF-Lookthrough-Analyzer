@@ -21,6 +21,29 @@ type EtfHoldingsProxyResponse = {
   constituents: EtfConstituent[];
   warnings: string[];
   errors: string[];
+  debug?: EtfHoldingsProxyDebug;
+};
+
+type EtfHoldingsProxyDebugAttempt = {
+  variantName: string;
+  requestUrl: string;
+  method: string;
+  responseStatus?: number;
+  responseContentType?: string;
+  responseTextPreview?: string;
+  redirectLocation?: string;
+  setCookieReceived?: boolean;
+  fetchErrorName?: string;
+  fetchErrorMessage?: string;
+  fetchErrorCauseName?: string;
+  fetchErrorCauseCode?: string;
+  fetchErrorCauseMessage?: string;
+  beforeResponse: boolean;
+};
+
+type EtfHoldingsProxyDebug = {
+  attempts: EtfHoldingsProxyDebugAttempt[];
+  recommendation?: string;
 };
 
 type VercelRequest = {
@@ -39,6 +62,7 @@ type ParsedHoldings = {
   constituents: EtfConstituent[];
   warnings: string[];
   errors: string[];
+  debug?: EtfHoldingsProxyDebug;
 };
 
 type UniPresidentPcfDetail = {
@@ -215,6 +239,131 @@ const fetchText = async (
   } finally {
     clearTimeout(timeoutId);
   }
+};
+
+const getErrorCause = (error: unknown) => {
+  if (!(error instanceof Error)) {
+    return undefined;
+  }
+
+  const cause = error.cause;
+  return cause && typeof cause === "object"
+    ? (cause as {
+        name?: string;
+        code?: string;
+        message?: string;
+      })
+    : undefined;
+};
+
+const getSetCookiePair = (setCookie: string | null) => {
+  if (!setCookie) {
+    return undefined;
+  }
+
+  return setCookie.split(";")[0];
+};
+
+const appendCookie = (currentCookie: string | undefined, setCookie: string | null) => {
+  const cookiePair = getSetCookiePair(setCookie);
+
+  if (!cookiePair) {
+    return currentCookie;
+  }
+
+  return currentCookie ? `${currentCookie}; ${cookiePair}` : cookiePair;
+};
+
+const fetchTextWithCookieRedirectDiagnostics = async ({
+  variantName,
+  url,
+  init,
+  attempts,
+  timeoutMs = 15000,
+  maxRedirects = 2,
+}: {
+  variantName: string;
+  url: string;
+  init: RequestInit;
+  attempts: EtfHoldingsProxyDebugAttempt[];
+  timeoutMs?: number;
+  maxRedirects?: number;
+}) => {
+  let cookie: string | undefined;
+
+  for (let redirectIndex = 0; redirectIndex <= maxRedirects; redirectIndex += 1) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    const headers = new Headers(init.headers);
+
+    if (cookie) {
+      headers.set("Cookie", cookie);
+    }
+
+    try {
+      const response = await fetch(url, {
+        ...init,
+        headers,
+        redirect: "manual",
+        signal: controller.signal,
+      });
+      const text = await response.text();
+      const setCookie = response.headers.get("set-cookie");
+      const location = response.headers.get("location") ?? undefined;
+
+      attempts.push({
+        variantName,
+        requestUrl: url,
+        method: init.method ?? "GET",
+        responseStatus: response.status,
+        responseContentType: response.headers.get("content-type") ?? undefined,
+        responseTextPreview: text.slice(0, 240),
+        redirectLocation: location,
+        setCookieReceived: Boolean(setCookie),
+        beforeResponse: false,
+      });
+
+      if (
+        response.status >= 300 &&
+        response.status < 400 &&
+        location === url &&
+        setCookie
+      ) {
+        cookie = appendCookie(cookie, setCookie);
+        continue;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          `Official source returned HTTP ${response.status}: ${text.slice(0, 160)}`,
+        );
+      }
+
+      return text;
+    } catch (error) {
+      const cause = getErrorCause(error);
+
+      attempts.push({
+        variantName,
+        requestUrl: url,
+        method: init.method ?? "GET",
+        fetchErrorName: error instanceof Error ? error.name : undefined,
+        fetchErrorMessage: error instanceof Error ? error.message : String(error),
+        fetchErrorCauseName: cause?.name,
+        fetchErrorCauseCode: cause?.code,
+        fetchErrorCauseMessage: cause?.message,
+        beforeResponse: true,
+      });
+
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  throw new Error(
+    `${variantName} exceeded ${maxRedirects} same-URL cookie redirects.`,
+  );
 };
 
 const parseYuanta0050PcfResponse = (raw: string): ParsedHoldings => {
@@ -453,6 +602,7 @@ const buildResponse = (
   constituents: parsed.constituents,
   warnings: parsed.warnings,
   errors: parsed.errors,
+  debug: parsed.debug,
 });
 
 const fetch0050 = async () => {
@@ -465,21 +615,104 @@ const fetch0050 = async () => {
   return parseYuanta0050PcfResponse(raw);
 };
 
-const fetch00981A = async () => {
-  const raw = await fetchText(UPAMC_00981A_GET_PCF_URL, {
-    method: "POST",
-    headers: {
-      ...JSON_HEADERS,
-      Referer: "https://www.ezmoney.com.tw/ETF/Transaction/PCF?fundCode=49YTW",
+const fetch00981A = async (): Promise<ParsedHoldings> => {
+  const attempts: EtfHoldingsProxyDebugAttempt[] = [];
+  const minguoDate = getMinguoDate();
+  const baseHeaders = {
+    ...JSON_HEADERS,
+    Referer: "https://www.ezmoney.com.tw/ETF/Transaction/PCF?fundCode=49YTW",
+    Origin: "https://www.ezmoney.com.tw",
+    "User-Agent": "Mozilla/5.0 ETF-Lookthrough-Analyzer/0.1",
+  };
+  const variants: Array<{
+    name: string;
+    init: RequestInit;
+  }> = [
+    {
+      name: "json-current-date-cookie-redirect",
+      init: {
+        method: "POST",
+        headers: baseHeaders,
+        body: JSON.stringify({
+          fundCode: "49YTW",
+          date: minguoDate,
+          specificDate: true,
+        }),
+      },
     },
-    body: JSON.stringify({
-      fundCode: "49YTW",
-      date: getMinguoDate(),
-      specificDate: true,
-    }),
-  });
+    {
+      name: "json-empty-date-cookie-redirect",
+      init: {
+        method: "POST",
+        headers: baseHeaders,
+        body: JSON.stringify({
+          fundCode: "49YTW",
+          date: "",
+          specificDate: false,
+        }),
+      },
+    },
+    {
+      name: "json-no-date-cookie-redirect",
+      init: {
+        method: "POST",
+        headers: baseHeaders,
+        body: JSON.stringify({
+          fundCode: "49YTW",
+        }),
+      },
+    },
+    {
+      name: "form-current-date-cookie-redirect",
+      init: {
+        method: "POST",
+        headers: {
+          ...baseHeaders,
+          "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        },
+        body: new URLSearchParams({
+          fundCode: "49YTW",
+          date: minguoDate,
+          specificDate: "true",
+        }).toString(),
+      },
+    },
+  ];
+  const parseFailures: string[] = [];
 
-  return parseUniPresident00981APcfResponse(raw);
+  for (const variant of variants) {
+    try {
+      const raw = await fetchTextWithCookieRedirectDiagnostics({
+        variantName: variant.name,
+        url: UPAMC_00981A_GET_PCF_URL,
+        init: variant.init,
+        attempts,
+      });
+      const parsed = parseUniPresident00981APcfResponse(raw);
+
+      if (parsed.constituents.length > 0 && parsed.errors.length === 0) {
+        return parsed;
+      }
+
+      parseFailures.push(`${variant.name}: ${parsed.errors.join("; ") || "no valid constituents"}`);
+    } catch {
+      continue;
+    }
+  }
+
+  return {
+    constituents: [],
+    warnings: [],
+    errors: [
+      "Uni-President 00981A official PCF fetch failed for all tested request variants.",
+      ...parseFailures,
+    ],
+    debug: {
+      attempts,
+      recommendation:
+        "The official endpoint may require its same-URL 307 cookie challenge to succeed from the runtime. If all variants fail on Vercel, keep 00981A on CSV fallback or evaluate an alternate serverless runtime.",
+    },
+  };
 };
 
 const fetch00994A = async () => {
@@ -556,6 +789,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ? "00981A may be blocked by issuer network policy from the serverless runtime; this should not block 0050 or 00994A."
             : "",
         ].filter(Boolean),
+        debug:
+          typedSymbol === "00981A"
+            ? {
+                attempts: [
+                  {
+                    variantName: "handler-catch",
+                    requestUrl: SOURCE_URLS[typedSymbol],
+                    method: "POST",
+                    fetchErrorName: error instanceof Error ? error.name : undefined,
+                    fetchErrorMessage:
+                      error instanceof Error ? error.message : String(error),
+                    fetchErrorCauseName: getErrorCause(error)?.name,
+                    fetchErrorCauseCode: getErrorCause(error)?.code,
+                    fetchErrorCauseMessage: getErrorCause(error)?.message,
+                    beforeResponse: true,
+                  },
+                ],
+                recommendation:
+                  "Inspect the 00981A request variant diagnostics. Keep CSV fallback if the issuer blocks the Vercel runtime.",
+              }
+            : undefined,
       }),
     );
   }

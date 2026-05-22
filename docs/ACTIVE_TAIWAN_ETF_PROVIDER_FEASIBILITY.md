@@ -379,3 +379,41 @@ Supported source mapping：
 | `00994A` | `https://www.fsitc.com.tw/WebAPI.aspx/Get_hd` | POST `{"pStrFundID":"182","pStrDate":""}` | `parseFirst00994AGetHdResponse` | Implemented |
 
 Local-first note：proxy 只接收 ETF symbol，例如 `symbol=00994A`。使用者 portfolio、交易、價格、手動 / CSV 匯入的 ETF constituents 仍留在 browser localStorage。Step 33 沒有加入 production auto-fetch UI，也沒有加入 one-click update all ETFs。
+
+## 00981A Vercel Proxy Troubleshooting
+
+Step 35 將焦點調整為：
+
+1. `0050`
+2. `00981A`
+
+`00994A` 已非目前使用者優先標的，保留為低優先度 / CSV fallback；既有 proxy 與 parser 不移除，但不列入主要自動化焦點。
+
+### Tested request variants
+
+Official endpoint remains:
+
+`POST https://www.ezmoney.com.tw/ETF/Transaction/GetPCF`
+
+Official page remains:
+
+`https://www.ezmoney.com.tw/ETF/Transaction/PCF?fundCode=49YTW`
+
+Tested variants:
+
+| Variant | Body | Headers | Shell / Node result | Vercel expectation |
+| --- | --- | --- | --- | --- |
+| `json-current-date-cookie-redirect` | `{"fundCode":"49YTW","date":"<ROC date>","specificDate":true}` | JSON, Accept, X-Requested-With, Referer, Origin, User-Agent | Initial Node fetch loops on same-URL `307`; manual redirect shows `__nxquid` cookie; repeating POST with cookie returns HTTP `200` JSON | Primary variant after Step 35 |
+| `json-empty-date-cookie-redirect` | `{"fundCode":"49YTW","date":"","specificDate":false}` | same | Tested as fallback request shape | Fallback only |
+| `json-no-date-cookie-redirect` | `{"fundCode":"49YTW"}` | same | Tested as fallback request shape | Fallback only |
+| `form-current-date-cookie-redirect` | form-urlencoded `fundCode`, `date`, `specificDate` | form Content-Type plus AJAX headers | Tested as fallback; official docs still point to JSON | Fallback only |
+
+### Finding
+
+The issuer endpoint does not simply return JSON to Node/Vercel fetch. It first returns a same-URL `307 Temporary Redirect` with a `Set-Cookie` header similar to `__nxquid=...`. Automatic redirect handling can exceed redirect limits because the redirect target is the same URL. A manual retry with the received cookie succeeds from local Node for the documented JSON request.
+
+Step 35 updates the proxy to handle this cookie redirect narrowly for 00981A and to return structured diagnostics if all official request variants fail. Diagnostics include request URL, method, variant name, response status, response content-type, short response preview, redirect location, whether a cookie was received, fetch error name/message, fetch cause, and whether the failure happened before any response.
+
+### Recommendation
+
+If Vercel succeeds after the cookie redirect fix, 00981A can move toward a diagnostic-only UI test before any save/update flow. If Vercel still fails, keep 00981A on CSV fallback and consider an alternate proxy runtime only if 00981A remains important enough to justify it. Do not block 0050 work on 00981A.

@@ -215,8 +215,9 @@ export function getKnownTaiwanEtfProviderCapabilities(): KnownTaiwanEtfProviderC
         "00994A 官方 Get_hd JSON parser POC 已可將 group=1 股票列轉成 EtfConstituent[]。",
         "TWSE ETF productContent 可確認 00994A 的官方 PCF 入口指向第一金 FundDetail 申購買回清單頁。",
         "官方 JSON 端點未回 CORS header，前端瀏覽器自動化可能需要 serverless proxy；本步驟仍不接 production provider。",
+        "00994A 已非目前使用者優先標的，保留為低優先度 / CSV fallback。",
       ],
-      recommendedFallback: "目前仍建議 CSV 匯入；下一步是評估 serverless proxy 或 parser proof-of-concept 的部署方式。",
+      recommendedFallback: "低優先度保留；目前仍建議 CSV 匯入，不列入 0050 / 00981A 主要自動化焦點。",
     },
   ];
 }

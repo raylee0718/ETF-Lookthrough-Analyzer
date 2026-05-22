@@ -237,6 +237,8 @@ Proxy 目前會回傳 normalized constituents，response 包含 `symbol`、`stat
 - `00981A`：統一投信官方 `POST https://www.ezmoney.com.tw/ETF/Transaction/GetPCF`，使用既有 `parseUniPresident00981APcfResponse`。本機 Node fetch 對此 endpoint 曾出現 network-level failure；proxy 會以清楚的 `failed` response 回報。
 - `00994A`：第一金投信官方 `POST https://www.fsitc.com.tw/WebAPI.aspx/Get_hd`，body 為 `{"pStrFundID":"182","pStrDate":""}`，使用既有 `parseFirst00994AGetHdResponse`。
 
+目前自動化焦點調整為 `0050` + `00981A`。`00994A` 已非目前使用者優先標的，保留為低優先度 / CSV fallback，不作為下一步主線自動化對象。
+
 Proxy 不做的事：
 - 不儲存 user data。
 - 不需要 login。

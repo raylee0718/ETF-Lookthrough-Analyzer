@@ -57,3 +57,13 @@ Latest deployed test timestamp: `2026-05-22 17:23 Asia/Taipei`.
 If `00981A` returns `failed` while `0050` and `00994A` succeed, treat it as an issuer/runtime compatibility issue for the Uni-President endpoint. Keep 0050 and 00994A eligible for later diagnostic UI work, and document the 00981A error message before changing request headers or body.
 
 User portfolio, transaction, price, and manually imported ETF constituent data remain browser `localStorage` only. The proxy receives only the requested ETF symbol.
+
+## Step 35 00981A Focus
+
+Current automation priority is `0050` first and `00981A` second. `00994A` remains documented as available/partial, but it is now low priority / CSV fallback because it is no longer a current user holding.
+
+For `00981A`, Step 35 added same-URL `307` cookie redirect handling and structured failure diagnostics. After deployment, retest:
+
+`https://etf-lookthrough-analyzer.vercel.app/api/etf-holdings?symbol=00981A`
+
+If it still fails, inspect the returned `debug.attempts` array and keep CSV fallback until a runtime that can satisfy the issuer's cookie challenge is chosen.
