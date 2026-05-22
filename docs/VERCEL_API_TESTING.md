@@ -67,3 +67,11 @@ For `00981A`, Step 35 added same-URL `307` cookie redirect handling and structur
 `https://etf-lookthrough-analyzer.vercel.app/api/etf-holdings?symbol=00981A`
 
 If it still fails, inspect the returned `debug.attempts` array and keep CSV fallback until a runtime that can satisfy the issuer's cookie challenge is chosen.
+
+Latest Step 35 deployed test timestamp: `2026-05-22 17:33 Asia/Taipei`.
+
+| Symbol | HTTP status | response `status` | constituent count | asOfDate | warnings | errors | Ready for UI integration |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `0050` | `200` | `ok` | `50` | `2026-05-22` | none | none | yes |
+| `00981A` | `200` | `partial` | `48` | `2026-05-21` | skipped 5 invalid official PCF rows | none | yes for diagnostic UI; keep warnings visible |
+| `00994A` | `200` | `partial` | `40` | `2026-05-22` | skipped 2 invalid official `Get_hd` rows | none | low priority only |
