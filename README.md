@@ -250,3 +250,4 @@ Local-first note：使用者 portfolio、交易、價格與 ETF constituents 仍
 Local / Vercel 測試：
 - deployed：開啟 `/api/etf-holdings?symbol=00994A` 或 `/api/etf-holdings?symbol=0050`。
 - local：若有 Vercel CLI，可用 `vercel dev` 後測 `/api/etf-holdings?symbol=00994A`；一般 `npm run dev` 只啟動 Vite frontend，不會執行 Vercel function。
+- Step 34 deployed API testing notes：`docs/VERCEL_API_TESTING.md`。

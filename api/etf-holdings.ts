@@ -1,15 +1,27 @@
-import {
-  FSITC_00994A_GET_HD_URL,
-  parseFirst00994AGetHdResponse,
-  parseUniPresident00981APcfResponse,
-  parseYuanta0050PcfResponse,
-  UPAMC_00981A_GET_PCF_URL,
-} from "../src/lib/taiwanEtfProviders";
-import type {
-  EtfHoldingsProxyResponse,
-  EtfHoldingsProxySymbol,
-} from "../src/types/etfHoldingsProxy";
-import type { EtfConstituent } from "../src/types/portfolio";
+type EtfHoldingsProxySymbol = "0050" | "00981A" | "00994A";
+
+type EtfConstituent = {
+  id: string;
+  etfSymbol: string;
+  stockSymbol: string;
+  stockName: string;
+  weightPercent: number;
+  industry?: string;
+  asOfDate?: string;
+  source?: string;
+};
+
+type EtfHoldingsProxyResponse = {
+  symbol: EtfHoldingsProxySymbol;
+  status: "ok" | "partial" | "failed";
+  source: string;
+  sourceUrl: string;
+  fetchedAt: string;
+  asOfDate?: string;
+  constituents: EtfConstituent[];
+  warnings: string[];
+  errors: string[];
+};
 
 type VercelRequest = {
   method?: string;
@@ -20,7 +32,6 @@ type VercelResponse = {
   status: (statusCode: number) => VercelResponse;
   setHeader: (name: string, value: string) => void;
   json: (body: unknown) => void;
-  end: () => void;
 };
 
 type ParsedHoldings = {
@@ -30,8 +41,56 @@ type ParsedHoldings = {
   errors: string[];
 };
 
+type UniPresidentPcfDetail = {
+  DetailCode?: unknown;
+  DetailName?: unknown;
+  NavRate?: unknown;
+  TranDate?: unknown;
+};
+
+type UniPresidentPcfAsset = {
+  AssetCode?: unknown;
+  Details?: unknown;
+};
+
+type UniPresidentPcfResponse = {
+  pcf?: unknown;
+  asset?: unknown;
+  Data?: unknown;
+};
+
+type FirstGetHdRow = {
+  sdate?: unknown;
+  group?: unknown;
+  A?: unknown;
+  B?: unknown;
+  C?: unknown;
+};
+
+type YuantaPcfStockWeight = {
+  code?: unknown;
+  stkcd?: unknown;
+  name?: unknown;
+  weights?: unknown;
+  weight?: unknown;
+};
+
+type YuantaPcfResponse = {
+  Data?: unknown;
+  PCF?: {
+    trandate?: unknown;
+  };
+  FundWeights?: {
+    StockWeights?: YuantaPcfStockWeight[];
+  };
+};
+
 const YUANTA_0050_PCF_DAILY_URL =
   "https://etfapi.yuantaetfs.com/ectranslation/api/bridge?APIType=ETFAPI&CompanyName=YUANTAFUNDS&PageName=%2FtradeInfo%2Fpcf%2F0050&DeviceId=null&FuncId=PCF%2FDaily&AppName=ETF&Device=3&Platform=ETF&ticker=0050&ndate=";
+const UPAMC_00981A_GET_PCF_URL =
+  "https://www.ezmoney.com.tw/ETF/Transaction/GetPCF";
+const FSITC_00994A_GET_HD_URL =
+  "https://www.fsitc.com.tw/WebAPI.aspx/Get_hd";
 
 const SUPPORTED_SYMBOLS = new Set<EtfHoldingsProxySymbol>([
   "0050",
@@ -74,6 +133,63 @@ const getMinguoDate = (date = new Date()) => {
   return `${Number(year) - 1911}/${month}/${day}`;
 };
 
+const formatCompactDate = (value: string) => {
+  const match = value.match(/^(\d{4})(\d{2})(\d{2})$/);
+  return match ? `${match[1]}-${match[2]}-${match[3]}` : undefined;
+};
+
+const normalizeDateString = (value: unknown) => {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const normalized = value.trim();
+  const isoDate = normalized.match(/^(\d{4})[-/](\d{2})[-/](\d{2})/);
+  if (isoDate) {
+    return `${isoDate[1]}-${isoDate[2]}-${isoDate[3]}`;
+  }
+
+  const compactDate = formatCompactDate(normalized);
+  if (compactDate) {
+    return compactDate;
+  }
+
+  const minguoDate = normalized.match(/^(\d{3})\/(\d{2})\/(\d{2})$/);
+  if (minguoDate) {
+    return `${Number(minguoDate[1]) + 1911}-${minguoDate[2]}-${minguoDate[3]}`;
+  }
+
+  return undefined;
+};
+
+const normalizeStockSymbol = (value: string) => {
+  const symbol = value
+    .trim()
+    .toUpperCase()
+    .replace(/\.(TW|TWO|TT|TPE)$/i, "");
+  const match = symbol.match(/^\d{4,6}[A-Z]?/);
+  return match?.[0] ?? "";
+};
+
+const parseWeight = (value: unknown) => {
+  const weight = Number(
+    String(value ?? "")
+      .replace("%", "")
+      .replace(/,/g, "")
+      .trim(),
+  );
+
+  return Number.isFinite(weight) && weight > 0 ? weight : undefined;
+};
+
+const parseJson = (raw: unknown) => {
+  if (typeof raw !== "string") {
+    return raw;
+  }
+
+  return JSON.parse(raw);
+};
+
 const fetchText = async (
   url: string,
   init: RequestInit = {},
@@ -90,13 +206,226 @@ const fetchText = async (
     const text = await response.text();
 
     if (!response.ok) {
-      throw new Error(`Official source returned HTTP ${response.status}: ${text.slice(0, 160)}`);
+      throw new Error(
+        `Official source returned HTTP ${response.status}: ${text.slice(0, 160)}`,
+      );
     }
 
     return text;
   } finally {
     clearTimeout(timeoutId);
   }
+};
+
+const parseYuanta0050PcfResponse = (raw: string): ParsedHoldings => {
+  const warnings: string[] = [];
+  let parsedJson: YuantaPcfResponse;
+
+  try {
+    parsedJson = JSON.parse(raw) as YuantaPcfResponse;
+  } catch {
+    return {
+      constituents: [],
+      warnings,
+      errors: ["Yuanta 0050 PCF/Daily response was not valid JSON."],
+    };
+  }
+
+  const data = (parsedJson.Data ?? parsedJson) as YuantaPcfResponse;
+  const asOfDate =
+    typeof data.PCF?.trandate === "string"
+      ? formatCompactDate(data.PCF.trandate)
+      : undefined;
+  const stockWeights = Array.isArray(data.FundWeights?.StockWeights)
+    ? data.FundWeights.StockWeights
+    : [];
+
+  if (!asOfDate) {
+    warnings.push("Could not determine 0050 asOfDate from PCF/Daily JSON.");
+  }
+
+  const constituents = stockWeights.flatMap((row, index): EtfConstituent[] => {
+    const stockSymbol = normalizeStockSymbol(String(row.code ?? row.stkcd ?? ""));
+    const stockName = String(row.name ?? "").trim();
+    const weightPercent = parseWeight(row.weights ?? row.weight);
+
+    if (!stockSymbol || !stockName || !weightPercent) {
+      warnings.push(`Skipped invalid 0050 PCF stock row ${index + 1}.`);
+      return [];
+    }
+
+    return [
+      {
+        id: `provider-proxy-0050-${stockSymbol}-${index}`,
+        etfSymbol: "0050",
+        stockSymbol,
+        stockName,
+        weightPercent,
+        asOfDate,
+        source: SOURCE_LABELS["0050"],
+      },
+    ];
+  });
+
+  return {
+    asOfDate,
+    constituents,
+    warnings,
+    errors:
+      constituents.length > 0
+        ? []
+        : ["Yuanta 0050 PCF/Daily JSON did not contain parseable weighted holdings."],
+  };
+};
+
+const parseUniPresident00981APcfResponse = (raw: string): ParsedHoldings => {
+  const warnings: string[] = [];
+  const errors: string[] = [];
+  let parsedJson: UniPresidentPcfResponse;
+
+  try {
+    parsedJson = parseJson(raw) as UniPresidentPcfResponse;
+  } catch {
+    return {
+      constituents: [],
+      warnings,
+      errors: ["00981A PCF response was not valid JSON."],
+    };
+  }
+
+  const data = (parsedJson.Data ?? parsedJson) as UniPresidentPcfResponse;
+  const assets = Array.isArray(data.asset) ? (data.asset as UniPresidentPcfAsset[]) : [];
+  const stockAsset = assets.find((asset) => String(asset.AssetCode ?? "") === "ST");
+  const stockDetails = Array.isArray(stockAsset?.Details)
+    ? (stockAsset.Details as UniPresidentPcfDetail[])
+    : [];
+  const firstDetailDate = stockDetails
+    .map((row) => normalizeDateString(row.TranDate))
+    .find(Boolean);
+  const pcfRows = Array.isArray(data.pcf) ? (data.pcf as Array<Record<string, unknown>>) : [];
+  const asOfDate =
+    firstDetailDate ??
+    pcfRows
+      .flatMap((row) => [row.TranDate, row.tranDate, row.PostDate, row.postDate])
+      .map(normalizeDateString)
+      .find(Boolean);
+
+  if (stockDetails.length === 0) {
+    errors.push("00981A PCF JSON did not contain asset[AssetCode=ST].Details.");
+  }
+
+  if (!asOfDate) {
+    warnings.push("Could not determine 00981A asOfDate from PCF JSON.");
+  }
+
+  const constituents = stockDetails.flatMap((row, index): EtfConstituent[] => {
+    const stockSymbol = normalizeStockSymbol(String(row.DetailCode ?? ""));
+    const stockName = String(row.DetailName ?? "").trim();
+    const weightPercent = parseWeight(row.NavRate);
+
+    if (!stockSymbol || !stockName || !weightPercent) {
+      warnings.push(`Skipped invalid 00981A PCF stock row ${index + 1}.`);
+      return [];
+    }
+
+    return [
+      {
+        id: `provider-proxy-00981A-${stockSymbol}-${index}`,
+        etfSymbol: "00981A",
+        stockSymbol,
+        stockName,
+        weightPercent,
+        asOfDate,
+        source: SOURCE_LABELS["00981A"],
+      },
+    ];
+  });
+
+  if (stockDetails.length > 0 && constituents.length === 0) {
+    errors.push("00981A PCF JSON had stock rows but no valid NavRate weights.");
+  }
+
+  return {
+    asOfDate,
+    constituents,
+    warnings,
+    errors,
+  };
+};
+
+const parseFirst00994AGetHdResponse = (raw: string): ParsedHoldings => {
+  const warnings: string[] = [];
+  const errors: string[] = [];
+  let rows: FirstGetHdRow[] = [];
+
+  try {
+    const outer = parseJson(raw) as { d?: unknown } | FirstGetHdRow[];
+    const innerData = Array.isArray(outer) ? outer : outer.d;
+
+    if (typeof innerData === "string") {
+      const parsedInner = parseJson(innerData);
+      rows = Array.isArray(parsedInner) ? (parsedInner as FirstGetHdRow[]) : [];
+    } else {
+      rows = Array.isArray(innerData) ? (innerData as FirstGetHdRow[]) : [];
+    }
+  } catch {
+    return {
+      constituents: [],
+      warnings,
+      errors: ["00994A Get_hd response was not valid JSON."],
+    };
+  }
+
+  const stockRows = rows.filter((row) => String(row.group ?? "").trim() === "1");
+  const asOfDate = (stockRows.length > 0 ? stockRows : rows)
+    .map((row) => normalizeDateString(row.sdate))
+    .find(Boolean);
+
+  if (rows.length === 0) {
+    errors.push("00994A Get_hd JSON did not contain parseable rows.");
+  }
+
+  if (rows.length > 0 && stockRows.length === 0) {
+    errors.push("00994A Get_hd JSON did not contain group=1 stock rows.");
+  }
+
+  if (!asOfDate) {
+    warnings.push("Could not determine 00994A asOfDate from Get_hd JSON.");
+  }
+
+  const constituents = stockRows.flatMap((row, index): EtfConstituent[] => {
+    const stockSymbol = normalizeStockSymbol(String(row.A ?? ""));
+    const stockName = String(row.B ?? "").trim();
+    const weightPercent = parseWeight(row.C);
+
+    if (!stockSymbol || !stockName || !weightPercent) {
+      warnings.push(`Skipped invalid 00994A Get_hd stock row ${index + 1}.`);
+      return [];
+    }
+
+    return [
+      {
+        id: `provider-proxy-00994A-${stockSymbol}-${index}`,
+        etfSymbol: "00994A",
+        stockSymbol,
+        stockName,
+        weightPercent,
+        asOfDate,
+        source: SOURCE_LABELS["00994A"],
+      },
+    ];
+  });
+
+  if (stockRows.length > 0 && constituents.length === 0) {
+    errors.push("00994A Get_hd JSON had stock rows but no valid C column weights.");
+  }
+
+  return {
+    asOfDate,
+    constituents,
+    warnings,
+    errors,
+  };
 };
 
 const getStatus = (parsed: ParsedHoldings): EtfHoldingsProxyResponse["status"] => {
@@ -126,26 +455,17 @@ const buildResponse = (
   errors: parsed.errors,
 });
 
-const fetch0050 = async (): Promise<ParsedHoldings> => {
+const fetch0050 = async () => {
   const raw = await fetchText(YUANTA_0050_PCF_DAILY_URL, {
     headers: {
       Accept: "application/json",
     },
   });
-  const parsed = parseYuanta0050PcfResponse(raw);
 
-  return {
-    asOfDate: parsed.asOfDate,
-    constituents: parsed.constituents,
-    warnings: parsed.warnings,
-    errors:
-      parsed.constituents.length > 0
-        ? []
-        : ["Yuanta 0050 PCF/Daily JSON did not contain parseable weighted holdings."],
-  };
+  return parseYuanta0050PcfResponse(raw);
 };
 
-const fetch00981A = async (): Promise<ParsedHoldings> => {
+const fetch00981A = async () => {
   const raw = await fetchText(UPAMC_00981A_GET_PCF_URL, {
     method: "POST",
     headers: {
@@ -159,13 +479,10 @@ const fetch00981A = async (): Promise<ParsedHoldings> => {
     }),
   });
 
-  return parseUniPresident00981APcfResponse(raw, {
-    etfSymbol: "00981A",
-    source: SOURCE_LABELS["00981A"],
-  });
+  return parseUniPresident00981APcfResponse(raw);
 };
 
-const fetch00994A = async (): Promise<ParsedHoldings> => {
+const fetch00994A = async () => {
   const raw = await fetchText(FSITC_00994A_GET_HD_URL, {
     method: "POST",
     headers: {
@@ -178,10 +495,7 @@ const fetch00994A = async (): Promise<ParsedHoldings> => {
     }),
   });
 
-  return parseFirst00994AGetHdResponse(raw, {
-    etfSymbol: "00994A",
-    source: SOURCE_LABELS["00994A"],
-  });
+  return parseFirst00994AGetHdResponse(raw);
 };
 
 const fetchBySymbol = (symbol: EtfHoldingsProxySymbol) => {
@@ -219,15 +533,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  try {
-    const typedSymbol = symbol as EtfHoldingsProxySymbol;
-    const parsed = await fetchBySymbol(typedSymbol);
+  const typedSymbol = symbol as EtfHoldingsProxySymbol;
 
-    res.status(parsed.errors.length > 0 && parsed.constituents.length === 0 ? 502 : 200).json(
-      buildResponse(typedSymbol, parsed),
-    );
+  try {
+    const parsed = await fetchBySymbol(typedSymbol);
+    const failed = parsed.errors.length > 0 && parsed.constituents.length === 0;
+
+    res.status(failed ? 502 : 200).json(buildResponse(typedSymbol, parsed));
   } catch (error) {
-    const typedSymbol = symbol as EtfHoldingsProxySymbol;
     const message =
       error instanceof Error
         ? error.message
@@ -237,7 +550,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       buildResponse(typedSymbol, {
         constituents: [],
         warnings: [],
-        errors: [message],
+        errors: [
+          `${SOURCE_LABELS[typedSymbol]} fetch failed. ${message}`,
+          typedSymbol === "00981A"
+            ? "00981A may be blocked by issuer network policy from the serverless runtime; this should not block 0050 or 00994A."
+            : "",
+        ].filter(Boolean),
       }),
     );
   }
