@@ -4,6 +4,7 @@ import { getUnderlyingMarketLabel } from "./marketClassification";
 export type LookthroughDisplayOptions = {
   minExposureValue: number;
   minPortfolioWeight: number;
+  maxVisibleRows: number;
   groupSmallExposures: boolean;
 };
 
@@ -22,6 +23,9 @@ const groupedRowMeta: Record<
 const normalizeThreshold = (value: number) =>
   Number.isFinite(value) && value > 0 ? value : 0;
 
+const normalizeMaxVisibleRows = (value: number) =>
+  Number.isFinite(value) && value > 0 ? Math.floor(value) : Number.POSITIVE_INFINITY;
+
 const getGroupedSourceName = (market: UnderlyingMarket, count: number) =>
   `已彙總 ${count} 檔低於門檻的${getUnderlyingMarketLabel(market)}`;
 
@@ -35,22 +39,32 @@ export const groupSmallLookthroughExposures = (
 
   const minExposureValue = normalizeThreshold(options.minExposureValue);
   const minPortfolioWeight = normalizeThreshold(options.minPortfolioWeight);
-  const visibleExposures: LookthroughExposure[] = [];
+  const maxVisibleRows = normalizeMaxVisibleRows(options.maxVisibleRows);
+  const thresholdVisibleExposures: LookthroughExposure[] = [];
   const groupedExposures = new Map<UnderlyingMarket, LookthroughExposure[]>();
+
+  const addToGroup = (exposure: LookthroughExposure) => {
+    const market = exposure.underlyingMarket ?? "UNKNOWN";
+    const currentGroup = groupedExposures.get(market) ?? [];
+    currentGroup.push(exposure);
+    groupedExposures.set(market, currentGroup);
+  };
 
   exposures.forEach((exposure) => {
     const meetsValueThreshold = exposure.exposureValue >= minExposureValue;
     const meetsWeightThreshold = exposure.portfolioWeight >= minPortfolioWeight;
 
     if (meetsValueThreshold && meetsWeightThreshold) {
-      visibleExposures.push(exposure);
+      thresholdVisibleExposures.push(exposure);
       return;
     }
 
-    const market = exposure.underlyingMarket ?? "UNKNOWN";
-    const currentGroup = groupedExposures.get(market) ?? [];
-    currentGroup.push(exposure);
-    groupedExposures.set(market, currentGroup);
+    addToGroup(exposure);
+  });
+
+  const visibleExposures = thresholdVisibleExposures.slice(0, maxVisibleRows);
+  thresholdVisibleExposures.slice(maxVisibleRows).forEach((exposure) => {
+    addToGroup(exposure);
   });
 
   const groupedRows = marketOrder.flatMap((market): LookthroughExposure[] => {
@@ -97,4 +111,3 @@ export const groupSmallLookthroughExposures = (
 };
 
 const binnedSortValue = (exposure: LookthroughExposure) => exposure.exposureValue;
-

@@ -16,6 +16,7 @@ import { formatPercent } from "../lib/formatters";
 import {
   getUnderlyingMarketLabel,
   inferConstituentMarket,
+  normalizeImportedStockSymbol,
   normalizeUnderlyingMarketValue,
 } from "../lib/marketClassification";
 import {
@@ -174,6 +175,7 @@ const getProviderDecisionNote = (result: EtfHoldingsFetchResult) => {
 type ParseResult = {
   records: EtfConstituentInput[];
   errors: string[];
+  warnings: string[];
 };
 
 type DataQualityWarning = {
@@ -397,6 +399,7 @@ export default function EtfConstituentsPage({
     [],
   );
   const [parseErrors, setParseErrors] = useState<string[]>([]);
+  const [parseWarnings, setParseWarnings] = useState<string[]>([]);
   const [selectedEtfSymbol, setSelectedEtfSymbol] = useState("");
   const {
     providerConfigs,
@@ -601,16 +604,19 @@ export default function EtfConstituentsPage({
     setPasteText(sample00646PasteText);
     setPreviewRecords([]);
     setParseErrors([]);
+    setParseWarnings([]);
   };
 
   const parseText = (rawText: string): ParseResult => {
     const errors: string[] = [];
+    const warnings: string[] = [];
     const records: EtfConstituentInput[] = [];
 
     if (!normalizedEtfSymbol) {
       return {
         records,
         errors: ["請先輸入 ETF 代號。"],
+        warnings,
       };
     }
 
@@ -624,6 +630,7 @@ export default function EtfConstituentsPage({
       return {
         records,
         errors: ["沒有找到可匯入的成分股資料。"],
+        warnings,
       };
     }
 
@@ -652,7 +659,7 @@ export default function EtfConstituentsPage({
 
       const [fallbackStockSymbol, fallbackStockName, fallbackWeight, fallbackIndustry, fallbackMarket] =
         cells;
-      const stockSymbol = getCell("stockSymbol") ?? fallbackStockSymbol;
+      const rawStockSymbol = getCell("stockSymbol") ?? fallbackStockSymbol;
       const stockName = getCell("stockName") ?? fallbackStockName;
       const weightText = getCell("weightPercent") ?? fallbackWeight;
       const industry = getCell("industry") ?? fallbackIndustry;
@@ -661,7 +668,7 @@ export default function EtfConstituentsPage({
       const weightPercent = normalizeWeight(weightText ?? "");
       const rowNumber = index + 1;
 
-      if (!stockSymbol || !stockName || !weightText) {
+      if (!rawStockSymbol || !stockName || !weightText) {
         errors.push(`第 ${rowNumber} 列缺少成分股代號、名稱或權重。`);
         return;
       }
@@ -675,7 +682,31 @@ export default function EtfConstituentsPage({
         return;
       }
 
-      const normalizedStockSymbol = stockSymbol.trim().toUpperCase();
+      const originalStockSymbol = rawStockSymbol.trim();
+      const normalizedStockSymbol = normalizeImportedStockSymbol(
+        originalStockSymbol,
+        { etfSymbol: normalizedEtfSymbol },
+      );
+
+      if (!normalizedStockSymbol) {
+        errors.push(`第 ${rowNumber} 列缺少成分股代號。`);
+        return;
+      }
+
+      if (normalizedStockSymbol !== originalStockSymbol.toUpperCase()) {
+        warnings.push(
+          `已清理代號：${originalStockSymbol} → ${normalizedStockSymbol}`,
+        );
+      }
+
+      if (is00646ImportMode && /\s/.test(normalizedStockSymbol)) {
+        warnings.push(`此代號可能尚未清理：${normalizedStockSymbol}`);
+      }
+
+      if (/[^A-Z0-9./-]/u.test(normalizedStockSymbol)) {
+        warnings.push(`此代號含有不常見字元，請確認：${normalizedStockSymbol}`);
+      }
+
       const recordWithoutMarket = {
         etfSymbol: normalizedEtfSymbol,
         stockSymbol: normalizedStockSymbol,
@@ -698,13 +729,14 @@ export default function EtfConstituentsPage({
       errors.push("沒有找到可匯入的成分股資料。");
     }
 
-    return { records, errors };
+    return { records, errors, warnings: Array.from(new Set(warnings)) };
   };
 
   const handleParse = () => {
     const result = parseText(pasteText);
     setPreviewRecords(result.records);
     setParseErrors(result.errors);
+    setParseWarnings(result.warnings);
   };
 
   const handleCsvFileChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -722,6 +754,7 @@ export default function EtfConstituentsPage({
       setPasteText(fileText);
       setPreviewRecords(result.records);
       setParseErrors(result.errors);
+      setParseWarnings(result.warnings);
     };
 
     reader.readAsText(file, "utf-8");
@@ -745,6 +778,7 @@ export default function EtfConstituentsPage({
     setSelectedEtfSymbol(normalizedEtfSymbol);
     setPreviewRecords([]);
     setParseErrors([]);
+    setParseWarnings([]);
   };
 
   const handleDelete = (constituent: EtfConstituent) => {
@@ -767,6 +801,7 @@ export default function EtfConstituentsPage({
       setSelectedEtfSymbol("");
       setPreviewRecords([]);
       setParseErrors([]);
+      setParseWarnings([]);
     }
   };
 
@@ -1918,6 +1953,17 @@ export default function EtfConstituentsPage({
                     <div className="mt-2 grid gap-1">
                       {parseErrors.map((error) => (
                         <p key={error}>{error}</p>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {parseWarnings.length > 0 ? (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+                    <p className="font-semibold">匯入提醒</p>
+                    <div className="mt-2 grid gap-1">
+                      {parseWarnings.map((warning) => (
+                        <p key={warning}>{warning}</p>
                       ))}
                     </div>
                   </div>

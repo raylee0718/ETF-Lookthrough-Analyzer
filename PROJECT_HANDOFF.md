@@ -89,7 +89,7 @@ ETF Lookthrough Analyzer 是 local-first 的個人投資工具，用來分析自
 - Step 23: 0050 ETF holdings provider prototype：已完成。
 - Step 39: underlying market classification for 台股 / 美股 / 其他 / 未分類：已完成。00646 自動 provider 仍未實作，只支援手動 / CSV 匯入美股成分。
 - Step 41: lookthrough display threshold and small exposure grouping：已完成。只影響表格顯示，不改變計算總數。
-- Step 42: large imported constituent display threshold QA documentation：已完成。QA checklist 位於 `docs/LOOKTHROUGH_DISPLAY_THRESHOLD_QA.md`。
+- Step 42: large imported constituent display threshold QA documentation and 00646 ticker cleanup：已完成。QA checklist 位於 `docs/LOOKTHROUGH_DISPLAY_THRESHOLD_QA.md`。
 
 Step 11 特別說明：
 
@@ -203,7 +203,9 @@ ETF 成分股 CSV / 貼上表格支援選填 `市場` / `成分市場` / `股票
 
 Step 40 起，「ETF 成分股」頁提供 00646 手動匯入提示與範例格式。使用者可貼上或 CSV 匯入 `股票代號,股票名稱,持股權重,市場`，市場填 `美股` / `US`；若省略市場欄位，00646 的美股 ticker 會預設顯示為 `美股成分`。預覽表會顯示「成分市場」。若 00646 匯入列出現四碼台股格式代號，頁面只提醒確認資料來源，不阻擋儲存。此步驟仍不處理 USD/TWD 匯率轉換，也沒有 00646 / S&P 500 自動 provider。
 
-Step 41 起，「穿透分析」頁有 display-only 顯示門檻：預設最小顯示金額 `NT$1`、最小投組佔比 `0.01%`，並預設將低於門檻的 exposure 依 `underlyingMarket` 彙總為其他台股 / 美股 / 其他市場 / 未分類成分。這只改變底層股票曝險表格列出的細項，不改變 `lookthrough.ts` 的原始計算、總市值、市場曝險、產業曝險或集中度計算。
+Step 42 起，00646 / US constituent 匯入會清理常見 Bloomberg-like tickers：`NVDA UQ` -> `NVDA`、`AAPL UQ` -> `AAPL`、`JPM UN` -> `JPM`、`CBOE UF` -> `CBOE`。class-share slash 會轉 dot，例如 `BRK/B` -> `BRK.B`、`BF/B` -> `BF.B`。若清理後仍有空白或不常見字元，預覽會提醒但不阻擋儲存。
+
+Step 41 起，「穿透分析」頁有 display-only 顯示門檻；Step 42 將預設最小顯示金額調整為 `NT$10`，最小投組佔比維持 `0.01%`，最多顯示筆數預設 `50`。低於門檻或超過最多顯示筆數的 exposure 會依 `underlyingMarket` 彙總為其他台股 / 美股 / 其他市場 / 未分類成分。這只改變底層股票曝險表格列出的細項，不改變 `lookthrough.ts` 的原始計算、總市值、市場曝險、產業曝險或集中度計算。
 
 ETF overlap:
 

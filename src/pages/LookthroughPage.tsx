@@ -34,9 +34,10 @@ export default function LookthroughPage({
   transactions,
   priceRecords,
 }: LookthroughPageProps) {
-  const [minDisplayExposureValue, setMinDisplayExposureValue] = useState("1");
+  const [minDisplayExposureValue, setMinDisplayExposureValue] = useState("10");
   const [minDisplayPortfolioWeight, setMinDisplayPortfolioWeight] =
     useState("0.01");
+  const [maxVisibleRows, setMaxVisibleRows] = useState("50");
   const [groupSmallExposures, setGroupSmallExposures] = useState(true);
   const { settings } = useAppSettings();
   const portfolioSource = useMemo(
@@ -70,10 +71,12 @@ export default function LookthroughPage({
     () => ({
       minExposureValue: Number(minDisplayExposureValue),
       minPortfolioWeight: Number(minDisplayPortfolioWeight),
+      maxVisibleRows: Number(maxVisibleRows),
       groupSmallExposures,
     }),
     [
       groupSmallExposures,
+      maxVisibleRows,
       minDisplayExposureValue,
       minDisplayPortfolioWeight,
     ],
@@ -220,7 +223,10 @@ export default function LookthroughPage({
                 顯示門檻只影響表格列出的細項，不影響總市值、市場曝險與集中度計算。
               </p>
             </div>
-            <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
+            <p className="rounded-lg border border-blue-100 bg-white p-3 text-sm leading-6 text-slate-600">
+              表格會優先顯示影響較大的成分股。低於門檻或超過顯示筆數的成分會依市場彙總為「其他」，不影響總計。
+            </p>
+            <div className="grid gap-3 md:grid-cols-4 md:items-end">
               <label className="grid gap-2 text-sm font-medium text-slate-700">
                 最小顯示金額
                 <div className="flex items-center rounded-lg border border-stone-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100">
@@ -253,6 +259,17 @@ export default function LookthroughPage({
                   <span className="px-3 text-slate-500">%</span>
                 </div>
               </label>
+              <label className="grid gap-2 text-sm font-medium text-slate-700">
+                最多顯示筆數
+                <input
+                  className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  min="1"
+                  onChange={(event) => setMaxVisibleRows(event.target.value)}
+                  step="1"
+                  type="number"
+                  value={maxVisibleRows}
+                />
+              </label>
               <label className="flex items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700">
                 <input
                   checked={groupSmallExposures}
@@ -265,6 +282,13 @@ export default function LookthroughPage({
                 將低於門檻的成分彙總為其他
               </label>
             </div>
+            {lookthroughExposures.some(
+              (exposure) => (exposure.underlyingMarket ?? "UNKNOWN") === "US",
+            ) ? (
+              <p className="rounded-lg border border-stone-200 bg-white p-3 text-sm leading-6 text-slate-600">
+                00646 / S&P 500 類 ETF 成分較多，建議使用顯示門檻與「其他美股成分」彙總查看。
+              </p>
+            ) : null}
           </div>
 
           {concentrationWarnings.length > 0 ? (

@@ -56,6 +56,35 @@ export const normalizeUnderlyingMarketValue = (
   return undefined;
 };
 
+export const normalizeImportedStockSymbol = (
+  symbol: string,
+  context?: { etfSymbol?: string },
+) => {
+  const normalizedEtfSymbol = context?.etfSymbol?.trim().toUpperCase();
+  let normalizedSymbol = symbol.trim().toUpperCase().replace(/\s+/g, " ");
+
+  if (!normalizedSymbol) {
+    return normalizedSymbol;
+  }
+
+  if (/^\d{4}$/.test(normalizedSymbol)) {
+    return normalizedSymbol;
+  }
+
+  if (normalizedEtfSymbol === "00646") {
+    normalizedSymbol = normalizedSymbol.replace(
+      /^([A-Z0-9./-]+)\s+(UQ|UN|UF)$/u,
+      "$1",
+    );
+  }
+
+  if (/^[A-Z]{1,5}\/[A-Z]{1,2}$/.test(normalizedSymbol)) {
+    normalizedSymbol = normalizedSymbol.replace("/", ".");
+  }
+
+  return normalizedSymbol;
+};
+
 const isTaiwanNumericSymbol = (symbol: string) => /^\d{4}$/.test(symbol);
 const isTaiwanSuffixedSymbol = (symbol: string) => /\.(TW|TWO)$/.test(symbol);
 const isUsTickerSymbol = (symbol: string) =>
