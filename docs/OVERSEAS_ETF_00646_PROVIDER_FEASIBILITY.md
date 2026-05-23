@@ -133,6 +133,58 @@ Step 44 不實作非股票曝險。
 - `FutureWeights`、`CashPosition`、`Margin` 只記錄為 warnings / metadata，不轉成股票成分股
 - 未來若要顯示期貨或現金曝險，應新增明確的非股票 exposure type，不要塞進 `stockSymbol`
 
+## 00646 Parser POC
+
+Step 45 已建立 parser proof-of-concept：
+
+- parser function：`parseYuanta00646HoldingsResponse`
+- sample fixture：`src/data/sample00646HoldingsResponse.ts`
+- smoke utility：`runSample00646ParserSmokeTest`
+- official source：元大 ETFAPI bridge PCF/Daily JSON
+- stock rows source：`FundWeights.StockWeights[]`
+
+Normalized fields：
+
+- `etfSymbol`: `00646`
+- `stockSymbol`: 由 `code` / `stkcd` 清理後取得
+- `stockName`: 優先使用 `name`，備援 `ename`
+- `weightPercent`: 由 `weights` / `weight` 解析
+- `asOfDate`: 優先使用 context，否則使用 `PCF.trandate`
+- `source`: 預設 `元大投信 00646 官方持股資料`
+- `underlyingMarket`: 固定 `US`
+
+Ticker cleanup：
+
+- `NVDA UQ` -> `NVDA`
+- `AAPL UQ` -> `AAPL`
+- `JPM UN` -> `JPM`
+- `CBOE UF` -> `CBOE`
+- `BRK/B UN` -> `BRK.B`
+- `BF/B UN` -> `BF.B`
+
+Weight parsing：
+
+- 接受 number，例如 `8.18`
+- 接受 string，例如 `"8.18"`、`"8.18%"`
+- 跳過空值、`--`、無效數字或負數，並加入 warnings
+- 不會自行補權重或用股數推估權重
+
+Futures / cash handling：
+
+- `FutureWeights` 不會轉成 `EtfConstituent`
+- `CashPosition` 不會轉成 `EtfConstituent`
+- `Margin` 不會轉成 `EtfConstituent`
+- parser 會回傳 `ignoredNonStockRows` 與 warning，提醒非股票列已排除
+
+00646 的股票列來自美股 / S&P 500 類成分，parser POC 對所有有效股票列固定設定 `underlyingMarket: "US"`，讓穿透分析顯示為美股成分。
+
+此 POC 尚未接入 production UI：
+
+- 沒有新增 00646 更新按鈕
+- 沒有加入「一鍵更新目前持有 ETF」
+- 沒有自動寫入 localStorage
+- CSV / 貼上表格仍是目前可用 fallback
+
 ## Serverless proxy 評估
 
 00646 官方 JSON 回傳 `Access-Control-Allow-Origin: *`，因此瀏覽器端直抓可能可行；但仍需在 production browser 實測。

@@ -342,6 +342,15 @@ Step 44 完成 00646 官方來源 feasibility investigation，紀錄在 `docs/OV
 - JSON 同時包含期貨、現金、保證金與應收應付資料；下一步 parser POC 應先只轉換股票列，非股票曝險暫不實作。
 - 00646 automatic provider 尚未實作，也尚未加入一鍵更新流程；CSV / 貼上表格匯入仍是目前 fallback。
 
+Step 45 已建立 00646 parser proof-of-concept：
+
+- `parseYuanta00646HoldingsResponse` 只解析官方 JSON 的 `FundWeights.StockWeights[]`。
+- 有效股票列會轉成 `EtfConstituent[]`，並固定 `underlyingMarket: "US"`。
+- Bloomberg-like tickers 會清理，例如 `NVDA UQ` -> `NVDA`、`JPM UN` -> `JPM`、`BRK/B UN` -> `BRK.B`。
+- `FutureWeights`、`CashPosition`、`Margin` 會被忽略，不會塞進股票成分股。
+- fixture / smoke utility 位於 `src/data/sample00646HoldingsResponse.ts`。
+- 00646 自動更新 UI 尚未啟用，仍不列入 one-click batch update。
+
 ## 小額成分彙總
 
 Step 41 / 42 在「穿透分析」頁加入顯示門檻，適合 00646 / S&P 500 這類可能有大量小額成分股的 ETF。

@@ -4,6 +4,7 @@ import type {
   EtfHoldingsRuntimeDiagnostics,
 } from "../types/etfProvider";
 import type { EtfConstituent } from "../types/portfolio";
+import { normalizeImportedStockSymbol } from "./marketClassification";
 
 export const YUANTA_0050_HOLDINGS_URL =
   "https://www.yuantaetfs.com/product/detail/0050/ratio";
@@ -41,6 +42,7 @@ const YUANTA_0050_PCF_API_URL =
 
 const YUANTA_0050_RATIO_SOURCE_LABEL = "元大投信 0050 持股比重頁";
 const YUANTA_0050_PCF_SOURCE_LABEL = "元大投信 0050 申購買回清單";
+const YUANTA_00646_HOLDINGS_SOURCE_LABEL = "元大投信 00646 官方持股資料";
 const UPAMC_00981A_PCF_SOURCE_LABEL = "統一投信 00981A 官方 PCF";
 const FSITC_00994A_HOLDINGS_SOURCE_LABEL = "第一金投信 00994A 官方持股資料";
 const YUANTA_0050_FALLBACK_MESSAGE =
@@ -57,7 +59,7 @@ export type KnownTaiwanEtfProviderCapability = {
   etfSymbol: string;
   etfName: string;
   issuer: string;
-  status: "ready_for_provider" | "investigating";
+  status: "ready_for_provider" | "parser_poc_ready" | "investigating";
   statusLabel: string;
   candidateSourceNotes: string[];
   officialCandidateUrls: string[];
@@ -96,6 +98,25 @@ export type ParsedFirst00994AGetHdResponse = {
   constituents: EtfConstituent[];
   warnings: string[];
   errors: string[];
+};
+
+export type Yuanta00646HoldingsParserContext = {
+  etfSymbol?: "00646";
+  source?: string;
+  asOfDate?: string;
+};
+
+export type ParsedYuanta00646HoldingsResponse = {
+  asOfDate?: string;
+  source: string;
+  constituents: EtfConstituent[];
+  warnings: string[];
+  errors: string[];
+  ignoredNonStockRows: {
+    futures: number;
+    cash: number;
+    margin: number;
+  };
 };
 
 type ParsedHoldingRow = {
@@ -145,9 +166,15 @@ type YuantaPcfStockWeight = {
   code?: unknown;
   stkcd?: unknown;
   name?: unknown;
+  ename?: unknown;
   weights?: unknown;
   weight?: unknown;
   qty?: unknown;
+};
+
+type YuantaPcfCash = {
+  CashPosition?: unknown;
+  Margin?: unknown;
 };
 
 type YuantaPcfResponse = {
@@ -155,10 +182,15 @@ type YuantaPcfResponse = {
   PCF?: {
     trandate?: unknown;
     anndate?: unknown;
+    upddate?: unknown;
   };
   FundWeights?: {
     StockWeights?: YuantaPcfStockWeight[];
+    FutureWeights?: unknown;
+    ETFWeights?: unknown;
+    BondWeights?: unknown;
   };
+  Cash?: YuantaPcfCash;
   InKind?: {
     FundComposition?: Array<{
       stkcd?: unknown;
@@ -229,8 +261,8 @@ export function getKnownTaiwanEtfProviderCapabilities(): KnownTaiwanEtfProviderC
       etfSymbol: "00646",
       etfName: "元大S&P500",
       issuer: "元大投信",
-      status: "investigating",
-      statusLabel: "00646 官方來源已確認；parser POC 尚未實作",
+      status: "parser_poc_ready",
+      statusLabel: "00646 parser POC 已建立；尚未接入一鍵更新",
       officialCandidateUrls: [
         YUANTA_00646_PCF_URL,
         YUANTA_00646_BASIC_INFORMATION_URL,
@@ -239,6 +271,7 @@ export function getKnownTaiwanEtfProviderCapabilities(): KnownTaiwanEtfProviderC
       candidateSourceNotes: [
         "00646 為海外成分股 ETF，需將股票成分分類為 US / 美股成分。",
         "元大 PCF/Daily 官方 JSON 含 FundWeights.StockWeights，可取得股票代號、名稱、股數與直接權重。",
+        "00646 官方 PCF/Daily JSON parser POC 已可將股票列轉成 EtfConstituent[]，且固定 underlyingMarket 為 US。",
         "同一 JSON 也含 FutureWeights 與 Cash 區塊；parser POC 應先只轉換股票列，期貨 / 現金留待未來非股票曝險設計。",
         "需要沿用 00646 ticker cleanup，處理 UQ / UN 等 Bloomberg-like suffix 與 BRK/B 類 class-share 代號。",
       ],
@@ -298,6 +331,9 @@ const normalizeStockSymbol = (value: string) => {
   return match?.[0] ?? "";
 };
 
+const hasSuspiciousImportedTicker = (symbol: string) =>
+  /\s/.test(symbol) || /[^A-Z0-9.-]/.test(symbol);
+
 const parseWeight = (value: unknown) => {
   const normalizedValue = String(value ?? "")
     .replace("%", "")
@@ -305,6 +341,15 @@ const parseWeight = (value: unknown) => {
     .trim();
   const weight = Number(normalizedValue);
   return Number.isFinite(weight) && weight > 0 ? weight : undefined;
+};
+
+const parseNonNegativeWeight = (value: unknown) => {
+  const normalizedValue = String(value ?? "")
+    .replace("%", "")
+    .replace(/,/g, "")
+    .trim();
+  const weight = Number(normalizedValue);
+  return Number.isFinite(weight) && weight >= 0 ? weight : undefined;
 };
 
 const createConstituent = (
@@ -344,6 +389,126 @@ const parseJsonLikeResponse = (raw: unknown): { data?: unknown; error?: string }
 
   return { data: raw };
 };
+
+const getYuanta00646AsOfDate = (
+  data: YuantaPcfResponse,
+  contextDate?: string,
+) => {
+  const contextAsOfDate = normalizeDateString(contextDate);
+  if (contextAsOfDate) {
+    return contextAsOfDate;
+  }
+
+  return [data.PCF?.trandate, data.PCF?.anndate, data.PCF?.upddate]
+    .map(normalizeDateString)
+    .find(Boolean);
+};
+
+const countArrayRows = (value: unknown) => (Array.isArray(value) ? value.length : 0);
+
+export function parseYuanta00646HoldingsResponse(
+  raw: unknown,
+  context: Yuanta00646HoldingsParserContext = {},
+): ParsedYuanta00646HoldingsResponse {
+  const source = context.source ?? YUANTA_00646_HOLDINGS_SOURCE_LABEL;
+  const warnings: string[] = [];
+  const errors: string[] = [];
+  const { data: parsedJson, error } = parseJsonLikeResponse(raw);
+
+  if (error) {
+    return {
+      source,
+      constituents: [],
+      warnings,
+      errors: ["00646 PCF/Daily JSON 回應不是可解析的 JSON。"],
+      ignoredNonStockRows: {
+        futures: 0,
+        cash: 0,
+        margin: 0,
+      },
+    };
+  }
+
+  const data = ((parsedJson as YuantaPcfResponse)?.Data ??
+    parsedJson) as YuantaPcfResponse;
+  const stockRows = Array.isArray(data.FundWeights?.StockWeights)
+    ? data.FundWeights.StockWeights
+    : [];
+  const asOfDate = getYuanta00646AsOfDate(data, context.asOfDate);
+  const ignoredNonStockRows = {
+    futures: countArrayRows(data.FundWeights?.FutureWeights),
+    cash: countArrayRows(data.Cash?.CashPosition),
+    margin: countArrayRows(data.Cash?.Margin),
+  };
+
+  if (stockRows.length === 0) {
+    errors.push("00646 PCF/Daily JSON 找不到 FundWeights.StockWeights 股票明細。");
+  }
+
+  if (!asOfDate) {
+    warnings.push("無法從 00646 PCF/Daily JSON 判讀資料日期。");
+  }
+
+  if (
+    ignoredNonStockRows.futures > 0 ||
+    ignoredNonStockRows.cash > 0 ||
+    ignoredNonStockRows.margin > 0
+  ) {
+    warnings.push(
+      `00646 parser POC 已忽略非股票列：期貨 ${ignoredNonStockRows.futures} 筆、現金 ${ignoredNonStockRows.cash} 筆、保證金 ${ignoredNonStockRows.margin} 筆。`,
+    );
+  }
+
+  const constituents = stockRows.flatMap((row, index): EtfConstituent[] => {
+    const rawSymbol = String(row.code ?? row.stkcd ?? "");
+    const stockSymbol = normalizeImportedStockSymbol(rawSymbol, {
+      etfSymbol: context.etfSymbol ?? "00646",
+    });
+    const stockName = String(row.name ?? row.ename ?? "").trim();
+    const weightPercent = parseNonNegativeWeight(row.weights ?? row.weight);
+
+    if (!stockSymbol || !stockName || weightPercent === undefined) {
+      warnings.push(
+        `00646 PCF/Daily 股票明細第 ${index + 1} 筆缺少有效代號、名稱或 weights 權重，已略過。`,
+      );
+      return [];
+    }
+
+    if (stockSymbol !== rawSymbol.trim().toUpperCase()) {
+      warnings.push(`00646 股票代號已清理：${rawSymbol} -> ${stockSymbol}`);
+    }
+
+    if (hasSuspiciousImportedTicker(stockSymbol)) {
+      warnings.push(`00646 股票代號可能仍需確認：${stockSymbol}`);
+    }
+
+    return [
+      {
+        id: `provider-poc-00646-${stockSymbol}-${index}`,
+        etfSymbol: context.etfSymbol ?? "00646",
+        stockSymbol,
+        stockName,
+        weightPercent,
+        underlyingMarket: "US",
+        asOfDate,
+        source,
+      },
+    ];
+  });
+
+  if (stockRows.length > 0 && constituents.length === 0) {
+    errors.push("00646 PCF/Daily JSON 有股票明細，但沒有任何列含有效 weights 權重。");
+  }
+
+  return {
+    asOfDate,
+    source,
+    constituents,
+    warnings,
+    errors,
+    ignoredNonStockRows,
+  };
+}
 
 const parseFirst00994AGetHdRows = (
   raw: unknown,
