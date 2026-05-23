@@ -332,6 +332,16 @@ Step 40 強化 00646 的手動 / CSV 匯入流程，但仍未加入自動 provid
 - 若 00646 匯入資料出現四碼台股格式代號，頁面只會顯示提醒，不會阻擋匯入。
 - 本專案目前不處理 USD/TWD 匯率轉換，也不提供 00646 / S&P 500 自動資料來源。
 
+## 00646 官方來源調查
+
+Step 44 完成 00646 官方來源 feasibility investigation，紀錄在 `docs/OVERSEAS_ETF_00646_PROVIDER_FEASIBILITY.md`。
+
+- 官方候選來源為元大 00646 申購買回清單與元大 ETFAPI bridge PCF/Daily JSON。
+- 實測官方 JSON 可取得完整 `FundWeights.StockWeights`，包含 503 筆股票列、股票代號、名稱、股數與直接權重 `weights`。
+- 00646 股票列未來 normalize 後應固定標記為 `underlyingMarket: "US"` / 美股成分。
+- JSON 同時包含期貨、現金、保證金與應收應付資料；下一步 parser POC 應先只轉換股票列，非股票曝險暫不實作。
+- 00646 automatic provider 尚未實作，也尚未加入一鍵更新流程；CSV / 貼上表格匯入仍是目前 fallback。
+
 ## 小額成分彙總
 
 Step 41 / 42 在「穿透分析」頁加入顯示門檻，適合 00646 / S&P 500 這類可能有大量小額成分股的 ETF。

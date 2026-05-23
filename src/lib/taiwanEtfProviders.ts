@@ -9,6 +9,12 @@ export const YUANTA_0050_HOLDINGS_URL =
   "https://www.yuantaetfs.com/product/detail/0050/ratio";
 export const YUANTA_0050_PCF_URL =
   "https://www.yuantaetfs.com/tradeInfo/pcf/0050";
+export const YUANTA_00646_PCF_URL =
+  "https://www.yuantaetfs.com/tradeInfo/pcf/00646";
+export const YUANTA_00646_BASIC_INFORMATION_URL =
+  "https://www.yuantaetfs.com/product/detail/00646/Basic_information";
+export const YUANTA_00646_PCF_API_URL =
+  "https://etfapi.yuantaetfs.com/ectranslation/api/bridge?APIType=ETFAPI&CompanyName=YUANTAFUNDS&PageName=%2FtradeInfo%2Fpcf%2F00646&DeviceId=null&FuncId=PCF%2FDaily&AppName=ETF&Device=3&Platform=ETF&ticker=00646&ndate=";
 export const UPAMC_00981A_PCF_URL =
   "https://www.ezmoney.com.tw/ETF/Transaction/PCF?fundCode=49YTW";
 export const UPAMC_00981A_GET_PCF_URL =
@@ -218,6 +224,26 @@ export function getKnownTaiwanEtfProviderCapabilities(): KnownTaiwanEtfProviderC
         "00994A 已非目前使用者優先標的，保留為低優先度 / CSV fallback。",
       ],
       recommendedFallback: "低優先度保留；目前仍建議 CSV 匯入，不列入 0050 / 00981A 主要自動化焦點。",
+    },
+    {
+      etfSymbol: "00646",
+      etfName: "元大S&P500",
+      issuer: "元大投信",
+      status: "investigating",
+      statusLabel: "00646 官方來源已確認；parser POC 尚未實作",
+      officialCandidateUrls: [
+        YUANTA_00646_PCF_URL,
+        YUANTA_00646_BASIC_INFORMATION_URL,
+        YUANTA_00646_PCF_API_URL,
+      ],
+      candidateSourceNotes: [
+        "00646 為海外成分股 ETF，需將股票成分分類為 US / 美股成分。",
+        "元大 PCF/Daily 官方 JSON 含 FundWeights.StockWeights，可取得股票代號、名稱、股數與直接權重。",
+        "同一 JSON 也含 FutureWeights 與 Cash 區塊；parser POC 應先只轉換股票列，期貨 / 現金留待未來非股票曝險設計。",
+        "需要沿用 00646 ticker cleanup，處理 UQ / UN 等 Bloomberg-like suffix 與 BRK/B 類 class-share 代號。",
+      ],
+      recommendedFallback:
+        "CSV / 貼上表格匯入仍保留；自動 00646 provider 尚未實作。",
     },
   ];
 }

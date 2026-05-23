@@ -91,6 +91,7 @@ ETF Lookthrough Analyzer 是 local-first 的個人投資工具，用來分析自
 - Step 41: lookthrough display threshold and small exposure grouping：已完成。只影響表格顯示，不改變計算總數。
 - Step 42: large imported constituent display threshold QA documentation and 00646 ticker cleanup：已完成。QA checklist 位於 `docs/LOOKTHROUGH_DISPLAY_THRESHOLD_QA.md`。
 - Step 43: Auto MVP one-click update for currently held supported ETFs：已完成。Batch update 只包含持有中的 `0050` / `00981A`，先預覽再確認儲存。
+- Step 44: official 00646 holdings source feasibility investigation：已完成。官方 Yuanta PCF/Daily JSON 可提供 503 筆股票列與直接權重，決策為 `ready_for_parser_poc`，但尚未實作 00646 provider。
 
 Step 11 特別說明：
 
@@ -209,6 +210,8 @@ Step 42 起，00646 / US constituent 匯入會清理常見 Bloomberg-like ticker
 Step 41 起，「穿透分析」頁有 display-only 顯示門檻；Step 42 將預設最小顯示金額調整為 `NT$10`，最小投組佔比維持 `0.01%`，最多顯示筆數預設 `50`。低於門檻或超過最多顯示筆數的 exposure 會依 `underlyingMarket` 彙總為其他台股 / 美股 / 其他市場 / 未分類成分。這只改變底層股票曝險表格列出的細項，不改變 `lookthrough.ts` 的原始計算、總市值、市場曝險、產業曝險或集中度計算。
 
 Step 43 起，「ETF 成分股」頁提供 Auto MVP batch update：依目前 `HoldingsPage` 持股偵測 `0050` / `00981A`，按「更新目前持有且支援的 ETF」後透過既有 Vercel proxy 抓取官方來源，顯示批次預覽表，再由使用者確認「儲存可用的更新結果」。儲存只會寫入通過安全檢查的 ETF，failed / unsafe 會略過。`00646` 不會自動抓取，仍是 CSV fallback 或單一美股 ETF placeholder；`00994A` 不列入主要 batch update。
+
+Step 44 確認 00646 的官方 Yuanta ETFAPI bridge PCF/Daily JSON 可作為未來 parser POC 來源：`FundWeights.StockWeights` 有 503 筆股票列、Bloomberg-like ticker、名稱、股數與直接 `weights` 權重；`PCF.trandate` 可作為資料日期。JSON 同時含 `FutureWeights` 與 `Cash` 區塊，未來 parser POC 應先只轉換股票列並固定 `underlyingMarket: "US"`，不要把期貨 / 現金塞成股票成分股。詳細記錄在 `docs/OVERSEAS_ETF_00646_PROVIDER_FEASIBILITY.md`。
 
 ETF overlap:
 
