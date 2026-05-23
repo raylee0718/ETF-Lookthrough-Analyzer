@@ -88,6 +88,7 @@ ETF Lookthrough Analyzer 是 local-first 的個人投資工具，用來分析自
 - Step 22: Taiwan ETF holdings automation scope and provider architecture：已完成。
 - Step 23: 0050 ETF holdings provider prototype：已完成。
 - Step 39: underlying market classification for 台股 / 美股 / 其他 / 未分類：已完成。00646 自動 provider 仍未實作，只支援手動 / CSV 匯入美股成分。
+- Step 41: lookthrough display threshold and small exposure grouping：已完成。只影響表格顯示，不改變計算總數。
 
 Step 11 特別說明：
 
@@ -200,6 +201,8 @@ Step 39 起，每筆 `EtfConstituent` 與 `LookthroughExposure` 可帶 `underlyi
 ETF 成分股 CSV / 貼上表格支援選填 `市場` / `成分市場` / `股票市場` / `market` / `underlyingMarket` 欄位，值可用 `台股`、`台灣`、`TW`、`Taiwan`、`美股`、`美國`、`US`、`USA`、`其他`、`OTHER`。00646 自動 provider 與 S&P 500 自動抓取仍未實作。
 
 Step 40 起，「ETF 成分股」頁提供 00646 手動匯入提示與範例格式。使用者可貼上或 CSV 匯入 `股票代號,股票名稱,持股權重,市場`，市場填 `美股` / `US`；若省略市場欄位，00646 的美股 ticker 會預設顯示為 `美股成分`。預覽表會顯示「成分市場」。若 00646 匯入列出現四碼台股格式代號，頁面只提醒確認資料來源，不阻擋儲存。此步驟仍不處理 USD/TWD 匯率轉換，也沒有 00646 / S&P 500 自動 provider。
+
+Step 41 起，「穿透分析」頁有 display-only 顯示門檻：預設最小顯示金額 `NT$1`、最小投組佔比 `0.01%`，並預設將低於門檻的 exposure 依 `underlyingMarket` 彙總為其他台股 / 美股 / 其他市場 / 未分類成分。這只改變底層股票曝險表格列出的細項，不改變 `lookthrough.ts` 的原始計算、總市值、市場曝險、產業曝險或集中度計算。
 
 ETF overlap:
 

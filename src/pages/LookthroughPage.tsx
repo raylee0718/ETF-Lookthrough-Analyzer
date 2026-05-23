@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import PortfolioModeSwitch from "../components/PortfolioModeSwitch";
 import SectionCard from "../components/SectionCard";
 import StatCard from "../components/StatCard";
@@ -11,6 +11,7 @@ import {
   calculateUnmappedEtfHoldings,
   findConcentrationWarnings,
 } from "../lib/lookthrough";
+import { groupSmallLookthroughExposures } from "../lib/lookthroughDisplay";
 import {
   getUnderlyingMarketLabel,
   summarizeExposureByMarket,
@@ -33,6 +34,10 @@ export default function LookthroughPage({
   transactions,
   priceRecords,
 }: LookthroughPageProps) {
+  const [minDisplayExposureValue, setMinDisplayExposureValue] = useState("1");
+  const [minDisplayPortfolioWeight, setMinDisplayPortfolioWeight] =
+    useState("0.01");
+  const [groupSmallExposures, setGroupSmallExposures] = useState(true);
   const { settings } = useAppSettings();
   const portfolioSource = useMemo(
     () =>
@@ -60,6 +65,22 @@ export default function LookthroughPage({
   const marketExposures = useMemo(
     () => summarizeExposureByMarket(lookthroughExposures),
     [lookthroughExposures],
+  );
+  const displayThresholds = useMemo(
+    () => ({
+      minExposureValue: Number(minDisplayExposureValue),
+      minPortfolioWeight: Number(minDisplayPortfolioWeight),
+      groupSmallExposures,
+    }),
+    [
+      groupSmallExposures,
+      minDisplayExposureValue,
+      minDisplayPortfolioWeight,
+    ],
+  );
+  const displayLookthroughExposures = useMemo(
+    () => groupSmallLookthroughExposures(lookthroughExposures, displayThresholds),
+    [displayThresholds, lookthroughExposures],
   );
   const concentrationWarnings = useMemo(
     () => findConcentrationWarnings(lookthroughExposures),
@@ -192,6 +213,60 @@ export default function LookthroughPage({
           title="底層股票曝險"
           description="依投資組合佔比由高到低排列。來源欄會顯示直接持股或各 ETF 造成的曝險金額。"
         >
+          <div className="mb-4 grid gap-4 rounded-lg border border-stone-200 bg-stone-50 p-4">
+            <div>
+              <h3 className="text-base font-semibold text-slate-950">顯示門檻</h3>
+              <p className="mt-1 text-sm leading-6 text-slate-600">
+                顯示門檻只影響表格列出的細項，不影響總市值、市場曝險與集中度計算。
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
+              <label className="grid gap-2 text-sm font-medium text-slate-700">
+                最小顯示金額
+                <div className="flex items-center rounded-lg border border-stone-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100">
+                  <span className="px-3 text-slate-500">NT$</span>
+                  <input
+                    className="min-w-0 flex-1 rounded-r-lg px-3 py-2.5 text-slate-950 outline-none"
+                    min="0"
+                    onChange={(event) =>
+                      setMinDisplayExposureValue(event.target.value)
+                    }
+                    step="1"
+                    type="number"
+                    value={minDisplayExposureValue}
+                  />
+                </div>
+              </label>
+              <label className="grid gap-2 text-sm font-medium text-slate-700">
+                最小投組佔比
+                <div className="flex items-center rounded-lg border border-stone-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100">
+                  <input
+                    className="min-w-0 flex-1 rounded-l-lg px-3 py-2.5 text-slate-950 outline-none"
+                    min="0"
+                    onChange={(event) =>
+                      setMinDisplayPortfolioWeight(event.target.value)
+                    }
+                    step="0.01"
+                    type="number"
+                    value={minDisplayPortfolioWeight}
+                  />
+                  <span className="px-3 text-slate-500">%</span>
+                </div>
+              </label>
+              <label className="flex items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700">
+                <input
+                  checked={groupSmallExposures}
+                  className="h-4 w-4 rounded border-stone-300 text-blue-700"
+                  onChange={(event) =>
+                    setGroupSmallExposures(event.target.checked)
+                  }
+                  type="checkbox"
+                />
+                將低於門檻的成分彙總為其他
+              </label>
+            </div>
+          </div>
+
           {concentrationWarnings.length > 0 ? (
             <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
               <p className="font-semibold">集中度提醒</p>
@@ -237,7 +312,7 @@ export default function LookthroughPage({
                 </tr>
               </thead>
               <tbody>
-                {lookthroughExposures.map((exposure) => (
+                {displayLookthroughExposures.map((exposure) => (
                   <tr
                     className="border-b border-stone-100 align-top last:border-0"
                     key={exposure.stockSymbol}
@@ -245,7 +320,16 @@ export default function LookthroughPage({
                     <td className="py-4 font-semibold text-slate-950">
                       {exposure.stockSymbol}
                     </td>
-                    <td className="py-4 text-slate-700">{exposure.stockName}</td>
+                    <td className="py-4 text-slate-700">
+                      {exposure.stockName}
+                      {exposure.isGroupedSmallExposure &&
+                      exposure.groupedCount ? (
+                        <p className="mt-1 text-xs text-slate-500">
+                          已彙總 {exposure.groupedCount} 檔低於門檻的
+                          {getUnderlyingMarketLabel(exposure.underlyingMarket)}
+                        </p>
+                      ) : null}
+                    </td>
                     <td className="py-4 text-right font-medium text-slate-950">
                       {formatCurrency(exposure.exposureValue)}
                     </td>
@@ -262,7 +346,10 @@ export default function LookthroughPage({
                       <div className="grid gap-1 text-slate-600">
                         {exposure.sources.map((source) => (
                           <span key={source.sourceSymbol}>
-                            {source.sourceSymbol} {source.sourceName}:{" "}
+                            {exposure.isGroupedSmallExposure
+                              ? source.sourceName
+                              : `${source.sourceSymbol} ${source.sourceName}`}
+                            :{" "}
                             {formatCurrency(source.exposureValue)}
                           </span>
                         ))}

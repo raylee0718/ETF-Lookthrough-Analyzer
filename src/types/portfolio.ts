@@ -28,6 +28,8 @@ export type LookthroughExposure = {
   portfolioWeight: number;
   industry?: string;
   underlyingMarket?: UnderlyingMarket;
+  groupedCount?: number;
+  isGroupedSmallExposure?: boolean;
   sources: {
     sourceSymbol: string;
     sourceName: string;
