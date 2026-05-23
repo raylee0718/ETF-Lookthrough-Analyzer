@@ -268,6 +268,20 @@ Step 36 在「ETF 成分股」頁加入 MVP 一鍵更新流程，優先支援 `0
 
 `00994A` 已非目前使用者優先標的，保留為低優先度 / CSV fallback，不作為 MVP 一鍵更新主按鈕。CSV / 貼上表格匯入仍保留作為備援。
 
+## Auto MVP：一鍵更新目前持有 ETF
+
+Step 43 在「ETF 成分股」頁加入 batch update workflow。App 會根據「設定我的持股」偵測目前持有、且支援 proxy 自動更新的 ETF。
+
+- 目前主要自動更新標的是 `0050` 與 `00981A`。
+- 點選「更新目前持有且支援的 ETF」後，系統會呼叫既有 Vercel proxy 取得每檔 ETF 的 normalized constituents。
+- 結果會先顯示批次預覽表：狀態、資料日期、成分股筆數、權重合計、warnings / errors 數量，以及是否可儲存。
+- `00981A` 可能回傳 `partial`；只要沒有 errors、成分股數與權重有效，仍可儲存。
+- 使用者必須按「儲存可用的更新結果」並確認後，才會取代 localStorage 中對應 ETF 的成分股資料。
+- 儲存時只保存通過安全檢查的 ETF，失敗或 unsafe 的 ETF 會被略過。
+- `00646` 尚未支援自動更新，仍維持 CSV / 貼上表格匯入，或暫以單一美股 ETF 曝險呈現。
+- `00994A` 因使用者已售出，不列入主要 batch update 流程。
+- 單檔更新按鈕仍保留，供 batch update 失敗時手動測試。
+
 ## 依持股建議更新
 
 Step 38 讓「ETF 成分股」頁依照「設定我的持股」中的 ETF 顯示更新建議：

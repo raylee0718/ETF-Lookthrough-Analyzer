@@ -188,6 +188,10 @@ type ProxyUpdateError = {
   payload?: EtfHoldingsProxyResponse | { errors?: string[]; message?: string };
 };
 
+type BatchProxyUpdateError = ProxyUpdateError & {
+  symbol: PriorityProxyEtf["symbol"];
+};
+
 type PriorityProxyEtf = {
   symbol: Extract<EtfHoldingsProxySymbol, "0050" | "00981A">;
   name: string;
@@ -422,6 +426,14 @@ export default function EtfConstituentsPage({
     PriorityProxyEtf["symbol"] | ""
   >("");
   const [proxySaveMessage, setProxySaveMessage] = useState("");
+  const [batchProxyResults, setBatchProxyResults] = useState<
+    Partial<Record<PriorityProxyEtf["symbol"], EtfHoldingsProxyResponse>>
+  >({});
+  const [batchProxyErrors, setBatchProxyErrors] = useState<
+    Partial<Record<PriorityProxyEtf["symbol"], BatchProxyUpdateError>>
+  >({});
+  const [isBatchProxyLoading, setIsBatchProxyLoading] = useState(false);
+  const [batchProxyMessage, setBatchProxyMessage] = useState("");
 
   const normalizedEtfSymbol = etfSymbol.trim().toUpperCase();
   const is00646ImportMode = normalizedEtfSymbol === "00646";
@@ -498,6 +510,35 @@ export default function EtfConstituentsPage({
         (etf) => !heldSupportedProxySymbols.has(etf.symbol),
       ),
     [heldSupportedProxySymbols],
+  );
+
+  const heldSupportedProxyEtfs = useMemo(
+    () =>
+      heldEtfSuggestions
+        .flatMap((suggestion) =>
+          suggestion.supportStatus === "supported" && suggestion.supportedEtf
+            ? [suggestion.supportedEtf]
+            : [],
+        ),
+    [heldEtfSuggestions],
+  );
+
+  const heldUnsupportedEtfSuggestions = useMemo(
+    () =>
+      heldEtfSuggestions.filter(
+        (suggestion) => suggestion.supportStatus === "unsupported",
+      ),
+    [heldEtfSuggestions],
+  );
+
+  const batchSafeResults = useMemo(
+    () =>
+      heldSupportedProxyEtfs.flatMap((etf) => {
+        const result = batchProxyResults[etf.symbol];
+
+        return result && isProxyResultSafeToSave(result) ? [result] : [];
+      }),
+    [batchProxyResults, heldSupportedProxyEtfs],
   );
 
   const latestDataStatuses = useMemo(
@@ -898,6 +939,119 @@ export default function EtfConstituentsPage({
     setSelectedEtfSymbol(result.etfSymbol);
   };
 
+  const getProxyResultConstituentInputs = (
+    result: EtfHoldingsProxyResponse,
+  ): EtfConstituentInput[] =>
+    result.constituents.map((constituent) => ({
+      etfSymbol: result.symbol,
+      stockSymbol: constituent.stockSymbol,
+      stockName: constituent.stockName,
+      weightPercent: constituent.weightPercent,
+      industry: constituent.industry,
+      underlyingMarket:
+        constituent.underlyingMarket ?? inferConstituentMarket(constituent),
+      asOfDate: constituent.asOfDate ?? result.asOfDate,
+      source: constituent.source ?? result.source,
+    }));
+
+  const handleFetchHeldSupportedEtfs = async () => {
+    if (heldSupportedProxyEtfs.length === 0) {
+      return;
+    }
+
+    setIsBatchProxyLoading(true);
+    setBatchProxyMessage("");
+    setBatchProxyResults({});
+    setBatchProxyErrors({});
+
+    const nextResults: Partial<
+      Record<PriorityProxyEtf["symbol"], EtfHoldingsProxyResponse>
+    > = {};
+    const nextErrors: Partial<
+      Record<PriorityProxyEtf["symbol"], BatchProxyUpdateError>
+    > = {};
+
+    for (const etf of heldSupportedProxyEtfs) {
+      try {
+        const result = await fetchEtfHoldingsViaProxy(etf.symbol);
+        nextResults[etf.symbol] = result;
+      } catch (error) {
+        nextErrors[etf.symbol] = {
+          symbol: etf.symbol,
+          message:
+            error instanceof Error
+              ? error.message
+              : "更新失敗，請改用 CSV 匯入或稍後再試。",
+          payload:
+            error instanceof EtfHoldingsProxyClientError
+              ? error.payload
+              : undefined,
+        };
+      }
+    }
+
+    setBatchProxyResults(nextResults);
+    setBatchProxyErrors(nextErrors);
+    setIsBatchProxyLoading(false);
+
+    const safeCount = Object.values(nextResults).filter(
+      (result): result is EtfHoldingsProxyResponse =>
+        Boolean(result) && isProxyResultSafeToSave(result),
+    ).length;
+    const failedCount = Object.keys(nextErrors).length;
+
+    if (safeCount === 0) {
+      setBatchProxyMessage(
+        "目前沒有可儲存的更新結果，請稍後再試或使用 CSV 匯入。",
+      );
+      return;
+    }
+
+    if (failedCount > 0) {
+      setBatchProxyMessage(
+        "部分 ETF 更新成功，部分失敗。你可以儲存成功的結果。",
+      );
+      return;
+    }
+
+    setBatchProxyMessage("所有支援 ETF 已取得更新結果，請先預覽再儲存。");
+  };
+
+  const handleSaveBatchProxyResults = () => {
+    if (batchSafeResults.length === 0) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "這會取代所有可用 ETF 的既有成分股資料，是否繼續？",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    batchSafeResults.forEach((result) => {
+      replaceConstituentsForEtf(
+        result.symbol,
+        getProxyResultConstituentInputs(result),
+      );
+    });
+
+    const savedSymbols = batchSafeResults.map((result) => result.symbol);
+    const skippedSymbols = heldSupportedProxyEtfs
+      .map((etf) => etf.symbol)
+      .filter((symbol) => !savedSymbols.includes(symbol));
+
+    setSelectedEtfSymbol(savedSymbols[0] ?? "");
+    setBatchProxyMessage(
+      `已儲存 ${savedSymbols.join("、") || "無"}。${
+        skippedSymbols.length > 0
+          ? `略過 ${skippedSymbols.join("、")}。`
+          : ""
+      }請到「穿透分析」查看最新曝險。`,
+    );
+  };
+
   const handleFetchProxyUpdate = async (symbol: PriorityProxyEtf["symbol"]) => {
     setLoadingProxySymbol(symbol);
     setProxySaveMessage("");
@@ -951,17 +1105,7 @@ export default function EtfConstituentsPage({
 
     replaceConstituentsForEtf(
       result.symbol,
-      result.constituents.map((constituent) => ({
-        etfSymbol: result.symbol,
-        stockSymbol: constituent.stockSymbol,
-        stockName: constituent.stockName,
-        weightPercent: constituent.weightPercent,
-        industry: constituent.industry,
-        underlyingMarket:
-          constituent.underlyingMarket ?? inferConstituentMarket(constituent),
-        asOfDate: constituent.asOfDate ?? result.asOfDate,
-        source: constituent.source ?? result.source,
-      })),
+      getProxyResultConstituentInputs(result),
     );
     setSelectedEtfSymbol(result.symbol);
     setProxySaveMessage(
@@ -1187,17 +1331,259 @@ export default function EtfConstituentsPage({
         </section>
 
         <SectionCard
-          title="一鍵更新 ETF 成分股"
-          description="目前自動更新先支援台股 ETF：0050、00981A。00646 等海外 ETF 暫不支援；若需要分析，請先手動或 CSV 匯入成分股。"
+          title="一鍵更新目前持有 ETF"
+          description="系統會根據你在「設定我的持股」輸入的 ETF，找出目前支援自動更新的標的，並透過官方資料來源更新成分股。更新前會先預覽，不會直接覆蓋資料。"
         >
           <div className="grid gap-4">
+            <div className="grid gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-950">
+              {heldSupportedProxyEtfs.length > 0 ? (
+                <p>
+                  可自動更新：
+                  {heldSupportedProxyEtfs
+                    .map((etf) => `${etf.symbol} ${etf.name}`)
+                    .join("、")}
+                </p>
+              ) : (
+                <p>
+                  目前持股中沒有可自動更新的 ETF。你仍可使用 CSV / 貼上表格匯入成分股。
+                </p>
+              )}
+              {heldUnsupportedEtfSuggestions.length > 0 ? (
+                <div className="grid gap-2">
+                  {heldUnsupportedEtfSuggestions.map((suggestion) => (
+                    <p key={suggestion.symbol}>
+                      {suggestion.symbol} {suggestion.name}：
+                      {suggestion.symbol === "00646"
+                        ? "尚未支援自動成分股更新。你可以暫時讓它以單一美股 ETF 曝險呈現，或使用 CSV / 貼上表格匯入美股成分股。"
+                        : suggestion.symbol === "00994A"
+                          ? "目前不列入主要自動更新流程，請使用 CSV 匯入或進階工具。"
+                          : (suggestion.unsupportedMessage ??
+                            "目前不支援自動更新，請使用 CSV 匯入。")}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <button
+                  className="rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                  disabled={
+                    heldSupportedProxyEtfs.length === 0 || isBatchProxyLoading
+                  }
+                  onClick={handleFetchHeldSupportedEtfs}
+                  type="button"
+                >
+                  {isBatchProxyLoading
+                    ? "更新中..."
+                    : "更新目前持有且支援的 ETF"}
+                </button>
+                <button
+                  className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                  disabled={batchSafeResults.length === 0}
+                  onClick={handleSaveBatchProxyResults}
+                  type="button"
+                >
+                  儲存可用的更新結果
+                </button>
+              </div>
+              {batchProxyMessage ? (
+                <p className="rounded-lg border border-blue-200 bg-white p-3 text-blue-950">
+                  {batchProxyMessage}
+                </p>
+              ) : null}
+            </div>
+
+            {heldSupportedProxyEtfs.length > 0 &&
+            (Object.keys(batchProxyResults).length > 0 ||
+              Object.keys(batchProxyErrors).length > 0) ? (
+              <div className="grid gap-4 rounded-lg border border-stone-200 bg-white p-4">
+                <div>
+                  <h3 className="text-base font-semibold text-slate-950">
+                    批次更新預覽
+                  </h3>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    只會儲存通過安全檢查的 ETF；failed 或 unsafe 結果會被略過。
+                  </p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[880px] text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-stone-200 text-slate-500">
+                        <th className="pb-3 font-medium">ETF 代號</th>
+                        <th className="pb-3 font-medium">ETF 名稱</th>
+                        <th className="pb-3 font-medium">狀態</th>
+                        <th className="pb-3 font-medium">資料日期</th>
+                        <th className="pb-3 text-right font-medium">
+                          成分股筆數
+                        </th>
+                        <th className="pb-3 text-right font-medium">
+                          權重合計
+                        </th>
+                        <th className="pb-3 text-right font-medium">
+                          warnings
+                        </th>
+                        <th className="pb-3 text-right font-medium">errors</th>
+                        <th className="pb-3 font-medium">是否可儲存</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {heldSupportedProxyEtfs.map((etf) => {
+                        const result = batchProxyResults[etf.symbol];
+                        const error = batchProxyErrors[etf.symbol];
+                        const safeToSave = result
+                          ? isProxyResultSafeToSave(result)
+                          : false;
+
+                        return (
+                          <tr
+                            className="border-b border-stone-100 last:border-0"
+                            key={etf.symbol}
+                          >
+                            <td className="py-4 font-semibold text-slate-950">
+                              {etf.symbol}
+                            </td>
+                            <td className="py-4 text-slate-700">{etf.name}</td>
+                            <td className="py-4 text-slate-700">
+                              {result?.status ?? (error ? "failed" : "-")}
+                            </td>
+                            <td className="py-4 text-slate-600">
+                              {result?.asOfDate ?? "-"}
+                            </td>
+                            <td className="py-4 text-right text-slate-600">
+                              {result?.constituents.length ?? 0}
+                            </td>
+                            <td className="py-4 text-right text-slate-600">
+                              {result
+                                ? formatPercent(getProxyResultWeightTotal(result))
+                                : "-"}
+                            </td>
+                            <td className="py-4 text-right text-slate-600">
+                              {result?.warnings.length ?? 0}
+                            </td>
+                            <td className="py-4 text-right text-slate-600">
+                              {result?.errors.length ?? (error ? 1 : 0)}
+                            </td>
+                            <td className="py-4 text-slate-600">
+                              {safeToSave ? "可儲存" : "不可儲存"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="grid gap-3">
+                  {heldSupportedProxyEtfs.map((etf) => {
+                    const result = batchProxyResults[etf.symbol];
+                    const error = batchProxyErrors[etf.symbol];
+
+                    if (!result && !error) {
+                      return null;
+                    }
+
+                    return (
+                      <details
+                        className="rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm leading-6"
+                        key={`batch-detail-${etf.symbol}`}
+                      >
+                        <summary className="cursor-pointer font-semibold text-slate-950">
+                          {etf.symbol} 預覽明細
+                        </summary>
+                        {error ? (
+                          <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-red-800">
+                            <p>{error.message}</p>
+                            {error.payload ? (
+                              <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-white p-3 text-xs text-slate-700">
+                                {JSON.stringify(error.payload, null, 2)}
+                              </pre>
+                            ) : null}
+                          </div>
+                        ) : null}
+                        {result ? (
+                          <div className="mt-3 grid gap-3">
+                            {result.status === "partial" ? (
+                              <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
+                                此來源回傳 partial，請確認 warnings 後再儲存。
+                              </p>
+                            ) : null}
+                            {result.warnings.length > 0 ? (
+                              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
+                                <p className="font-semibold">Warnings</p>
+                                {result.warnings.map((warning) => (
+                                  <p key={warning}>- {warning}</p>
+                                ))}
+                              </div>
+                            ) : null}
+                            {result.errors.length > 0 ? (
+                              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-800">
+                                <p className="font-semibold">Errors</p>
+                                {result.errors.map((resultError) => (
+                                  <p key={resultError}>- {resultError}</p>
+                                ))}
+                              </div>
+                            ) : null}
+                            <div className="overflow-x-auto">
+                              <table className="w-full min-w-[620px] text-left text-sm">
+                                <thead>
+                                  <tr className="border-b border-stone-200 text-slate-500">
+                                    <th className="pb-2 font-medium">
+                                      股票代號
+                                    </th>
+                                    <th className="pb-2 font-medium">
+                                      股票名稱
+                                    </th>
+                                    <th className="pb-2 text-right font-medium">
+                                      權重
+                                    </th>
+                                    <th className="pb-2 font-medium">
+                                      成分市場
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {result.constituents
+                                    .slice(0, 10)
+                                    .map((constituent) => (
+                                      <tr
+                                        className="border-b border-stone-100 last:border-0"
+                                        key={`${result.symbol}-${constituent.stockSymbol}`}
+                                      >
+                                        <td className="py-2 font-semibold text-slate-950">
+                                          {constituent.stockSymbol}
+                                        </td>
+                                        <td className="py-2 text-slate-700">
+                                          {constituent.stockName}
+                                        </td>
+                                        <td className="py-2 text-right text-slate-700">
+                                          {formatPercent(
+                                            constituent.weightPercent,
+                                          )}
+                                        </td>
+                                        <td className="py-2 text-slate-600">
+                                          {getUnderlyingMarketLabel(
+                                            inferConstituentMarket(constituent),
+                                          )}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        ) : null}
+                      </details>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
             <div className="grid gap-3">
               <div>
                 <h3 className="text-base font-semibold text-slate-950">
-                  依目前持股建議更新
+                  單檔更新
                 </h3>
                 <p className="mt-1 text-sm leading-6 text-slate-600">
-                  只會針對「設定我的持股」中已持有的 ETF 顯示主要建議；支援項目可直接抓取官方來源並先預覽，不會自動覆蓋資料。
+                  批次更新失敗或需要單檔測試時，可在這裡分別更新目前持有的支援 ETF。
                 </p>
               </div>
 
