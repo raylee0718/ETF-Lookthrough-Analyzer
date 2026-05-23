@@ -199,6 +199,8 @@ Step 39 起，每筆 `EtfConstituent` 與 `LookthroughExposure` 可帶 `underlyi
 
 ETF 成分股 CSV / 貼上表格支援選填 `市場` / `成分市場` / `股票市場` / `market` / `underlyingMarket` 欄位，值可用 `台股`、`台灣`、`TW`、`Taiwan`、`美股`、`美國`、`US`、`USA`、`其他`、`OTHER`。00646 自動 provider 與 S&P 500 自動抓取仍未實作。
 
+Step 40 起，「ETF 成分股」頁提供 00646 手動匯入提示與範例格式。使用者可貼上或 CSV 匯入 `股票代號,股票名稱,持股權重,市場`，市場填 `美股` / `US`；若省略市場欄位，00646 的美股 ticker 會預設顯示為 `美股成分`。預覽表會顯示「成分市場」。若 00646 匯入列出現四碼台股格式代號，頁面只提醒確認資料來源，不阻擋儲存。此步驟仍不處理 USD/TWD 匯率轉換，也沒有 00646 / S&P 500 自動 provider。
+
 ETF overlap:
 
 `overlap.ts` 比較不同 ETF 的 constituent stock symbols，找出共同持股、共同權重與重疊程度，用來檢查不同 ETF 是否其實買到相似底層股票。

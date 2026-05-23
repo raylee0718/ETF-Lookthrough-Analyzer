@@ -323,6 +323,8 @@ const isHeaderRow = (cells: string[]) =>
 const normalizeWeight = (value: string) =>
   Number(value.replace("%", "").replace(/,/g, "").trim());
 
+const isTaiwanStyleStockCode = (symbol: string) => /^\d{4}$/.test(symbol.trim());
+
 type ConstituentColumnKey =
   | "stockSymbol"
   | "stockName"
@@ -417,6 +419,7 @@ export default function EtfConstituentsPage({
   const [proxySaveMessage, setProxySaveMessage] = useState("");
 
   const normalizedEtfSymbol = etfSymbol.trim().toUpperCase();
+  const is00646ImportMode = normalizedEtfSymbol === "00646";
 
   const etfSymbolSuggestions = useMemo(() => {
     const portfolioEtfs = holdings
@@ -586,6 +589,17 @@ export default function EtfConstituentsPage({
 
     return warnings;
   }, [filteredConstituents, latestDataStatuses, selectedEtfSymbol, summary.selectedWeight]);
+
+  const hasSuspicious00646TaiwanCodes =
+    is00646ImportMode &&
+    previewRecords.some((record) => isTaiwanStyleStockCode(record.stockSymbol));
+
+  const handleUse00646Sample = () => {
+    setEtfSymbol("00646");
+    setPasteText(sample00646PasteText);
+    setPreviewRecords([]);
+    setParseErrors([]);
+  };
 
   const parseText = (rawText: string): ParseResult => {
     const errors: string[] = [];
@@ -1801,6 +1815,11 @@ export default function EtfConstituentsPage({
                       <option key={symbol} value={symbol} />
                     ))}
                   </datalist>
+                  {is00646ImportMode ? (
+                    <span className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm font-normal leading-6 text-blue-950">
+                      00646 匯入資料將預設視為美股成分；若有特殊情況，可在市場欄位手動指定。
+                    </span>
+                  ) : null}
                 </label>
 
                 <label className="grid gap-2 text-sm font-medium text-slate-700">
@@ -1844,9 +1863,23 @@ export default function EtfConstituentsPage({
                   </pre>
                 </div>
                 <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-950">
-                  <p className="font-semibold">00646 美股成分匯入範例</p>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="font-semibold">00646 美股成分匯入提示</p>
+                      <p className="mt-1">
+                        00646 屬於海外成分股 ETF，目前不支援自動抓取。若要穿透分析 00646，可手動貼上或匯入美股成分資料，並將市場欄位填為「美股」。
+                      </p>
+                    </div>
+                    <button
+                      className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm font-medium text-blue-700 transition hover:bg-blue-100 sm:shrink-0"
+                      onClick={handleUse00646Sample}
+                      type="button"
+                    >
+                      套用範例格式
+                    </button>
+                  </div>
                   <p className="mt-1">
-                    範例格式，非最新真實持股。00646 尚未支援自動 provider，可先用 CSV / 貼上表格手動匯入美股成分。
+                    範例格式，非最新真實持股。
                   </p>
                   <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-md bg-white p-3 font-mono text-xs leading-5 text-slate-700">
                     {sample00646PasteText}
@@ -1901,6 +1934,11 @@ export default function EtfConstituentsPage({
               </div>
             ) : (
               <div className="grid gap-4">
+                {hasSuspicious00646TaiwanCodes ? (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+                    00646 通常應為美股成分，但偵測到台股格式代號，請確認資料來源是否正確。
+                  </div>
+                ) : null}
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[860px] text-left text-sm">
                     <thead>
