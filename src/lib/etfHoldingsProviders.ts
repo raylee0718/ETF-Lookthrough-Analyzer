@@ -1,5 +1,9 @@
 import type { EtfHoldingsFetchResult, EtfProviderConfig } from "../types/etfProvider";
 import type { EtfConstituent } from "../types/portfolio";
+import {
+  inferConstituentMarket,
+  normalizeUnderlyingMarketValue,
+} from "./marketClassification";
 import { fetchYuanta0050Holdings } from "./taiwanEtfProviders";
 
 type RawConstituentRow = Record<string, unknown>;
@@ -96,21 +100,37 @@ export function normalizeEtfConstituentRows(
       ]),
     );
     const industry = getStringField(row, ["industry", "產業", "類別"]);
+    const explicitMarket = normalizeUnderlyingMarketValue(
+      getStringField(row, [
+        "underlyingMarket",
+        "market",
+        "市場",
+        "成分市場",
+        "股票市場",
+      ]),
+    );
 
     if (!normalizedEtfSymbol || !stockSymbol || !stockName || !weightPercent) {
       return [];
     }
 
+    const constituent = {
+      id: `provider-${normalizedEtfSymbol}-${stockSymbol}-${index}`,
+      etfSymbol: normalizedEtfSymbol,
+      stockSymbol,
+      stockName,
+      weightPercent,
+      industry: industry || undefined,
+      underlyingMarket: explicitMarket,
+      asOfDate: context.asOfDate,
+      source: context.source,
+    };
+
     return [
       {
-        id: `provider-${normalizedEtfSymbol}-${stockSymbol}-${index}`,
-        etfSymbol: normalizedEtfSymbol,
-        stockSymbol,
-        stockName,
-        weightPercent,
-        industry: industry || undefined,
-        asOfDate: context.asOfDate,
-        source: context.source,
+        ...constituent,
+        underlyingMarket:
+          explicitMarket ?? inferConstituentMarket(constituent),
       },
     ];
   });

@@ -14,6 +14,11 @@ import {
 } from "../lib/etfHoldingsProxyClient";
 import { formatPercent } from "../lib/formatters";
 import {
+  getUnderlyingMarketLabel,
+  inferConstituentMarket,
+  normalizeUnderlyingMarketValue,
+} from "../lib/marketClassification";
+import {
   getKnownTaiwanEtfProviderCapabilities,
   YUANTA_0050_HOLDINGS_URL,
   YUANTA_0050_PCF_URL,
@@ -37,6 +42,11 @@ const samplePasteText = `股票代號,股票名稱,權重,產業
 2330,台積電,60.61,半導體
 2317,鴻海,3.50,電子
 2454,聯發科,3.20,半導體`;
+
+const sample00646PasteText = `股票代號,股票名稱,持股權重,市場
+AAPL,Apple Inc.,7.00%,美股
+MSFT,Microsoft,6.50%,美股
+NVDA,NVIDIA,6.00%,美股`;
 
 type EtfConstituentsPageProps = {
   holdings: PortfolioHolding[];
@@ -298,14 +308,75 @@ const isHeaderRow = (cells: string[]) =>
       "股票代號",
       "股票名稱",
       "權重",
+      "持股權重",
       "產業",
+      "市場",
+      "成分市場",
+      "股票市場",
       "stockSymbol",
       "stockName",
+      "market",
+      "underlyingMarket",
     ].some((keyword) => cell.includes(keyword)),
   );
 
 const normalizeWeight = (value: string) =>
   Number(value.replace("%", "").replace(/,/g, "").trim());
+
+type ConstituentColumnKey =
+  | "stockSymbol"
+  | "stockName"
+  | "weightPercent"
+  | "industry"
+  | "underlyingMarket";
+
+const normalizeHeaderText = (value: string) =>
+  value.trim().toLowerCase().replace(/\s+/g, "");
+
+const getConstituentColumnKey = (
+  header: string,
+): ConstituentColumnKey | null => {
+  const normalizedHeader = normalizeHeaderText(header);
+  const columnAliases: Record<string, ConstituentColumnKey> = {
+    成分股代號: "stockSymbol",
+    股票代號: "stockSymbol",
+    代號: "stockSymbol",
+    stocksymbol: "stockSymbol",
+    symbol: "stockSymbol",
+    成分股名稱: "stockName",
+    股票名稱: "stockName",
+    名稱: "stockName",
+    stockname: "stockName",
+    name: "stockName",
+    權重: "weightPercent",
+    持股權重: "weightPercent",
+    weight: "weightPercent",
+    weightpercent: "weightPercent",
+    產業: "industry",
+    industry: "industry",
+    市場: "underlyingMarket",
+    成分市場: "underlyingMarket",
+    股票市場: "underlyingMarket",
+    market: "underlyingMarket",
+    underlyingmarket: "underlyingMarket",
+  };
+
+  return columnAliases[normalizedHeader] ?? null;
+};
+
+const mapConstituentHeaders = (headers: string[]) => {
+  const columnMap = new Map<ConstituentColumnKey, number>();
+
+  headers.forEach((header, index) => {
+    const columnKey = getConstituentColumnKey(header);
+
+    if (columnKey && !columnMap.has(columnKey)) {
+      columnMap.set(columnKey, index);
+    }
+  });
+
+  return columnMap;
+};
 
 export default function EtfConstituentsPage({
   holdings,
@@ -527,47 +598,85 @@ export default function EtfConstituentsPage({
       };
     }
 
-    rawText
+    const lines = rawText
       .replace(/^\uFEFF/, "")
       .split(/\r?\n/)
       .map((line) => line.trim())
-      .filter(Boolean)
-      .forEach((line, index) => {
-        const delimiter = line.includes("\t") ? "\t" : ",";
-        const cells = splitDelimitedLine(line, delimiter);
+      .filter(Boolean);
 
-        if (index === 0 && isHeaderRow(cells)) {
-          return;
+    if (lines.length === 0) {
+      return {
+        records,
+        errors: ["沒有找到可匯入的成分股資料。"],
+      };
+    }
+
+    const firstDelimiter = lines[0].includes("\t") ? "\t" : ",";
+    const firstCells = splitDelimitedLine(lines[0], firstDelimiter);
+    const hasHeader = isHeaderRow(firstCells);
+    const columnMap = hasHeader ? mapConstituentHeaders(firstCells) : null;
+
+    lines.forEach((line, index) => {
+      const delimiter = line.includes("\t") ? "\t" : ",";
+      const cells = splitDelimitedLine(line, delimiter);
+
+      if (index === 0 && hasHeader) {
+        return;
+      }
+
+      const getCell = (columnKey: ConstituentColumnKey) => {
+        const columnIndex = columnMap?.get(columnKey);
+
+        if (columnIndex === undefined) {
+          return undefined;
         }
 
-        const [stockSymbol, stockName, weightText, industry] = cells;
-        const weightPercent = normalizeWeight(weightText ?? "");
-        const rowNumber = index + 1;
+        return cells[columnIndex];
+      };
 
-        if (!stockSymbol || !stockName || !weightText) {
-          errors.push(`第 ${rowNumber} 列缺少成分股代號、名稱或權重。`);
-          return;
-        }
+      const [fallbackStockSymbol, fallbackStockName, fallbackWeight, fallbackIndustry, fallbackMarket] =
+        cells;
+      const stockSymbol = getCell("stockSymbol") ?? fallbackStockSymbol;
+      const stockName = getCell("stockName") ?? fallbackStockName;
+      const weightText = getCell("weightPercent") ?? fallbackWeight;
+      const industry = getCell("industry") ?? fallbackIndustry;
+      const marketText = getCell("underlyingMarket") ?? fallbackMarket;
+      const explicitMarket = normalizeUnderlyingMarketValue(marketText);
+      const weightPercent = normalizeWeight(weightText ?? "");
+      const rowNumber = index + 1;
 
-        if (
-          !Number.isFinite(weightPercent) ||
-          weightPercent <= 0 ||
-          weightPercent > 100
-        ) {
-          errors.push(`第 ${rowNumber} 列權重格式不正確：${weightText}`);
-          return;
-        }
+      if (!stockSymbol || !stockName || !weightText) {
+        errors.push(`第 ${rowNumber} 列缺少成分股代號、名稱或權重。`);
+        return;
+      }
 
-        records.push({
-          etfSymbol: normalizedEtfSymbol,
-          stockSymbol: stockSymbol.trim().toUpperCase(),
-          stockName: stockName.trim(),
-          weightPercent,
-          industry: industry?.trim() || undefined,
-          asOfDate: asOfDate || undefined,
-          source: source || undefined,
-        });
+      if (
+        !Number.isFinite(weightPercent) ||
+        weightPercent <= 0 ||
+        weightPercent > 100
+      ) {
+        errors.push(`第 ${rowNumber} 列權重格式不正確：${weightText}`);
+        return;
+      }
+
+      const normalizedStockSymbol = stockSymbol.trim().toUpperCase();
+      const recordWithoutMarket = {
+        etfSymbol: normalizedEtfSymbol,
+        stockSymbol: normalizedStockSymbol,
+        stockName: stockName.trim(),
+        weightPercent,
+        industry: industry?.trim() || undefined,
+        underlyingMarket: explicitMarket,
+        asOfDate: asOfDate || undefined,
+        source: source || undefined,
+      };
+
+      records.push({
+        ...recordWithoutMarket,
+        underlyingMarket:
+          explicitMarket ?? inferConstituentMarket(recordWithoutMarket),
       });
+    });
 
     if (records.length === 0 && errors.length === 0) {
       errors.push("沒有找到可匯入的成分股資料。");
@@ -729,6 +838,8 @@ export default function EtfConstituentsPage({
         stockName: constituent.stockName,
         weightPercent: constituent.weightPercent,
         industry: constituent.industry,
+        underlyingMarket:
+          constituent.underlyingMarket ?? inferConstituentMarket(constituent),
         asOfDate: constituent.asOfDate,
         source: constituent.source,
       })),
@@ -795,6 +906,8 @@ export default function EtfConstituentsPage({
         stockName: constituent.stockName,
         weightPercent: constituent.weightPercent,
         industry: constituent.industry,
+        underlyingMarket:
+          constituent.underlyingMarket ?? inferConstituentMarket(constituent),
         asOfDate: constituent.asOfDate ?? result.asOfDate,
         source: constituent.source ?? result.source,
       })),
@@ -931,12 +1044,13 @@ export default function EtfConstituentsPage({
             ) : null}
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[560px] text-left text-sm">
+              <table className="w-full min-w-[660px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-stone-200 text-slate-500">
                     <th className="pb-2 font-medium">股票代號</th>
                     <th className="pb-2 font-medium">股票名稱</th>
                     <th className="pb-2 text-right font-medium">權重</th>
+                    <th className="pb-2 font-medium">成分市場</th>
                     <th className="pb-2 font-medium">產業</th>
                   </tr>
                 </thead>
@@ -954,6 +1068,11 @@ export default function EtfConstituentsPage({
                       </td>
                       <td className="py-3 text-right font-medium text-slate-950">
                         {formatPercent(constituent.weightPercent)}
+                      </td>
+                      <td className="py-3 text-slate-600">
+                        {getUnderlyingMarketLabel(
+                          inferConstituentMarket(constituent),
+                        )}
                       </td>
                       <td className="py-3 text-slate-600">
                         {constituent.industry ?? "-"}
@@ -1724,6 +1843,15 @@ export default function EtfConstituentsPage({
                     {samplePasteText}
                   </pre>
                 </div>
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-950">
+                  <p className="font-semibold">00646 美股成分匯入範例</p>
+                  <p className="mt-1">
+                    範例格式，非最新真實持股。00646 尚未支援自動 provider，可先用 CSV / 貼上表格手動匯入美股成分。
+                  </p>
+                  <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-md bg-white p-3 font-mono text-xs leading-5 text-slate-700">
+                    {sample00646PasteText}
+                  </pre>
+                </div>
                 <textarea
                   className="min-h-64 rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm leading-6 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   onChange={(event) => setPasteText(event.target.value)}
@@ -1774,13 +1902,14 @@ export default function EtfConstituentsPage({
             ) : (
               <div className="grid gap-4">
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[760px] text-left text-sm">
+                  <table className="w-full min-w-[860px] text-left text-sm">
                     <thead>
                       <tr className="border-b border-stone-200 text-slate-500">
                         <th className="pb-3 font-medium">ETF 代號</th>
                         <th className="pb-3 font-medium">成分股代號</th>
                         <th className="pb-3 font-medium">成分股名稱</th>
                         <th className="pb-3 text-right font-medium">權重</th>
+                        <th className="pb-3 font-medium">成分市場</th>
                         <th className="pb-3 font-medium">產業</th>
                         <th className="pb-3 font-medium">資料日期</th>
                         <th className="pb-3 font-medium">資料來源</th>
@@ -1803,6 +1932,11 @@ export default function EtfConstituentsPage({
                           </td>
                           <td className="py-4 text-right font-medium text-slate-950">
                             {formatPercent(record.weightPercent)}
+                          </td>
+                          <td className="py-4 text-slate-600">
+                            {getUnderlyingMarketLabel(
+                              inferConstituentMarket(record),
+                            )}
                           </td>
                           <td className="py-4 text-slate-600">
                             {record.industry ?? "未分類"}
@@ -1924,7 +2058,10 @@ export default function EtfConstituentsPage({
                       {constituent.stockSymbol} {constituent.stockName}
                     </h3>
                     <p className="mt-1 text-sm text-slate-600">
-                      {constituent.industry ?? "未分類"}
+                      {constituent.industry ?? "未分類"} /{" "}
+                      {getUnderlyingMarketLabel(
+                        inferConstituentMarket(constituent),
+                      )}
                     </p>
                   </div>
                   <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-stone-200">
@@ -1947,12 +2084,13 @@ export default function EtfConstituentsPage({
           </div>
 
           <div className="hidden overflow-x-auto md:block">
-            <table className="w-full min-w-[860px] text-left text-sm">
+            <table className="w-full min-w-[960px] text-left text-sm">
               <thead>
                 <tr className="border-b border-stone-200 text-slate-500">
                   <th className="pb-3 font-medium">ETF</th>
                   <th className="pb-3 font-medium">成分股</th>
                   <th className="pb-3 text-right font-medium">權重</th>
+                  <th className="pb-3 font-medium">成分市場</th>
                   <th className="pb-3 font-medium">產業</th>
                   <th className="pb-3 font-medium">日期</th>
                   <th className="pb-3 font-medium">來源</th>
@@ -1978,6 +2116,11 @@ export default function EtfConstituentsPage({
                     </td>
                     <td className="py-4 text-right font-medium text-slate-950">
                       {formatPercent(constituent.weightPercent)}
+                    </td>
+                    <td className="py-4 text-slate-600">
+                      {getUnderlyingMarketLabel(
+                        inferConstituentMarket(constituent),
+                      )}
                     </td>
                     <td className="py-4 text-slate-600">
                       {constituent.industry ?? "未分類"}

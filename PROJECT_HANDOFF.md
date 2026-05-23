@@ -35,7 +35,7 @@ ETF Lookthrough Analyzer 是 local-first 的個人投資工具，用來分析自
 
 - 目前 ETF 成分股自動化只聚焦台灣掛牌、主要持有台股的 ETF。
 - `0050 元大台灣50` 是第一個 provider prototype 目標。
-- `00646` 與海外 ETF 成分股自動化目前明確不在範圍內。
+- `00646` 與海外 ETF 成分股自動化目前明確不在範圍內；但 00646 會在穿透分析中被分類為美股 / 海外 ETF 曝險，不應被歸為台股成分。
 - 全球 ETF 資料、匯率轉換、S&P 500 穿透分析目前延後處理。
 - 手動輸入與 CSV 匯入必須保留，並且仍是最穩定的備援流程。
 
@@ -87,6 +87,7 @@ ETF Lookthrough Analyzer 是 local-first 的個人投資工具，用來分析自
 - Step 21: one-click price refresh and re-analysis dashboard flow：已完成。
 - Step 22: Taiwan ETF holdings automation scope and provider architecture：已完成。
 - Step 23: 0050 ETF holdings provider prototype：已完成。
+- Step 39: underlying market classification for 台股 / 美股 / 其他 / 未分類：已完成。00646 自動 provider 仍未實作，只支援手動 / CSV 匯入美股成分。
 
 Step 11 特別說明：
 
@@ -108,7 +109,7 @@ Step 23 特別說明：
 - `Dashboard`: 顯示投資組合總覽、總市值、穿透曝險、產業曝險、集中度警示、未對應 ETF 警示、價格覆蓋率，以及一鍵價格更新與重新分析流程。
 - `HoldingsPage`: 管理手動持股模式的 ETF 與個股部位，資料存入 localStorage。
 - `EtfConstituentsPage`: 管理 ETF 成分股，支援手動新增、CSV 匯入、資料狀態檢查、provider config、0050 provider 測試與結果預覽儲存。
-- `LookthroughPage`: 顯示 ETF 穿透後的底層股票曝險與產業曝險。
+- `LookthroughPage`: 顯示 ETF 穿透後的底層股票曝險、產業曝險，以及台股 / 美股 / 其他 / 未分類的成分市場曝險。
 - `OverlapPage`: 分析不同 ETF 之間的底層成分股重疊。
 - `TransactionsPage`: 管理交易紀錄，支援手動輸入與 CSV 匯入，並用交易紀錄計算目前部位。
 - `PricesPage`: 管理每日價格紀錄、手動價格、CSV 匯入價格、provider 匯入價格與價格覆蓋率。
@@ -140,6 +141,7 @@ Step 23 特別說明：
 - `priceRefresh.ts`: Dashboard 一鍵價格更新流程，呼叫可用 provider、upsert price records、回傳匯入摘要與警示。
 - `constituentVersions.ts`: 輕量計算 ETF 成分股資料狀態、最新日期與 freshness；不是版本比較研究。
 - `etfHoldingsProviders.ts`: ETF holdings provider 通用架構與 placeholder capability notes。
+- `marketClassification.ts`: 底層成分市場分類 helper，支援 `TW`、`US`、`OTHER`、`UNKNOWN`，並讓 00646 未匯入成分股時先以美股 ETF placeholder 呈現。
 - `taiwanEtfProviders.ts`: 台灣 ETF provider prototype，目前包含 `0050` 元大官方 ratio page 嘗試、parser helper 與 provider config 測試流程。
 - `format.ts`: 數字、百分比、貨幣等顯示格式。
 - `formatters.ts`: 輔助格式化 helper。
@@ -150,6 +152,7 @@ Step 23 特別說明：
 - `src/types/portfolio.ts`
   - `PortfolioHolding`
   - `HoldingCategory`
+  - `UnderlyingMarket`
   - `EtfConstituent`
   - `LookthroughExposure`
   - `IndustryExposure`
@@ -191,6 +194,10 @@ Step 23 特別說明：
 Lookthrough exposure:
 
 `portfolioSource.ts` 先依 `useAppSettings` 選擇資料來源。如果是 manual mode，使用 `HoldingsPage` 的手動部位；如果是 transaction mode，使用 `positions.ts` 由交易紀錄算出的目前部位，並在有價格時估算市值。接著 `lookthrough.ts` 將 ETF 持股依 ETF 成分股權重拆到個股曝險，個股則直接保留為底層曝險。
+
+Step 39 起，每筆 `EtfConstituent` 與 `LookthroughExposure` 可帶 `underlyingMarket`。若資料未明確提供，`marketClassification.ts` 會依股票代號與 ETF context 推論：四碼台股代號與 `.TW` / `.TWO` 為台股成分，英文字母 ticker 為美股成分，00646 的底層預設為美股成分但台股格式仍優先判斷為台股。00646 若尚未匯入成分股，會以單一美股 ETF placeholder 進入穿透分析，不會被標為台股成分。
+
+ETF 成分股 CSV / 貼上表格支援選填 `市場` / `成分市場` / `股票市場` / `market` / `underlyingMarket` 欄位，值可用 `台股`、`台灣`、`TW`、`Taiwan`、`美股`、`美國`、`US`、`USA`、`其他`、`OTHER`。00646 自動 provider 與 S&P 500 自動抓取仍未實作。
 
 ETF overlap:
 

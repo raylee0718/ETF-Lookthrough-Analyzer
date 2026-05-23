@@ -56,6 +56,7 @@ export const mockEtfConstituents: EtfConstituent[] = [
     stockName: "台積電",
     weightPercent: 48,
     industry: "半導體",
+    underlyingMarket: "TW",
   },
   {
     id: "0050-2317",
@@ -64,6 +65,7 @@ export const mockEtfConstituents: EtfConstituent[] = [
     stockName: "鴻海",
     weightPercent: 5.1,
     industry: "電子代工",
+    underlyingMarket: "TW",
   },
   {
     id: "0050-2454",
@@ -72,6 +74,7 @@ export const mockEtfConstituents: EtfConstituent[] = [
     stockName: "聯發科",
     weightPercent: 4.7,
     industry: "半導體",
+    underlyingMarket: "TW",
   },
   {
     id: "0050-2412",
@@ -80,6 +83,7 @@ export const mockEtfConstituents: EtfConstituent[] = [
     stockName: "中華電",
     weightPercent: 2.1,
     industry: "電信",
+    underlyingMarket: "TW",
   },
   {
     id: "00981a-2330",
@@ -88,6 +92,7 @@ export const mockEtfConstituents: EtfConstituent[] = [
     stockName: "台積電",
     weightPercent: 22,
     industry: "半導體",
+    underlyingMarket: "TW",
   },
   {
     id: "00981a-2308",
@@ -96,6 +101,7 @@ export const mockEtfConstituents: EtfConstituent[] = [
     stockName: "台達電",
     weightPercent: 7.5,
     industry: "電源與能源管理",
+    underlyingMarket: "TW",
   },
   {
     id: "00981a-2891",
@@ -104,6 +110,7 @@ export const mockEtfConstituents: EtfConstituent[] = [
     stockName: "中信金",
     weightPercent: 4.8,
     industry: "金融",
+    underlyingMarket: "TW",
   },
   {
     id: "00981a-3661",
@@ -112,6 +119,7 @@ export const mockEtfConstituents: EtfConstituent[] = [
     stockName: "世芯-KY",
     weightPercent: 3.8,
     industry: "半導體",
+    underlyingMarket: "TW",
   },
 ];
 
@@ -122,6 +130,7 @@ export const mockLookthroughExposures: LookthroughExposure[] = [
     exposureValue: 173200,
     portfolioWeight: 20.83,
     industry: "半導體",
+    underlyingMarket: "TW",
     sources: [
       { sourceSymbol: "0050", sourceName: "元大台灣50", exposureValue: 124800 },
       { sourceSymbol: "00981A", sourceName: "主動型台股ETF", exposureValue: 48400 },
@@ -133,6 +142,7 @@ export const mockLookthroughExposures: LookthroughExposure[] = [
     exposureValue: 100460,
     portfolioWeight: 12.09,
     industry: "電信",
+    underlyingMarket: "TW",
     sources: [
       { sourceSymbol: "2412", sourceName: "中華電", exposureValue: 95000 },
       { sourceSymbol: "0050", sourceName: "元大台灣50", exposureValue: 5460 },
@@ -144,6 +154,7 @@ export const mockLookthroughExposures: LookthroughExposure[] = [
     exposureValue: 86560,
     portfolioWeight: 10.42,
     industry: "金融",
+    underlyingMarket: "TW",
     sources: [
       { sourceSymbol: "2891", sourceName: "中信金", exposureValue: 76000 },
       { sourceSymbol: "00981A", sourceName: "主動型台股ETF", exposureValue: 10560 },
@@ -155,6 +166,7 @@ export const mockLookthroughExposures: LookthroughExposure[] = [
     exposureValue: 13260,
     portfolioWeight: 1.6,
     industry: "電子代工",
+    underlyingMarket: "TW",
     sources: [
       { sourceSymbol: "0050", sourceName: "元大台灣50", exposureValue: 13260 },
     ],

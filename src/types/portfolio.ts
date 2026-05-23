@@ -1,3 +1,5 @@
+export type UnderlyingMarket = "TW" | "US" | "OTHER" | "UNKNOWN";
+
 export type PortfolioHolding = {
   id: string;
   symbol: string;
@@ -14,6 +16,7 @@ export type EtfConstituent = {
   stockName: string;
   weightPercent: number;
   industry?: string;
+  underlyingMarket?: UnderlyingMarket;
   asOfDate?: string;
   source?: string;
 };
@@ -24,6 +27,7 @@ export type LookthroughExposure = {
   exposureValue: number;
   portfolioWeight: number;
   industry?: string;
+  underlyingMarket?: UnderlyingMarket;
   sources: {
     sourceSymbol: string;
     sourceName: string;

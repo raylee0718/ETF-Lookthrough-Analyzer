@@ -2,6 +2,10 @@ import { APP_SETTINGS_STORAGE_KEY } from "../hooks/useAppSettings";
 import { ETF_CONSTITUENTS_STORAGE_KEY } from "../hooks/useEtfConstituents";
 import { PRICE_RECORDS_STORAGE_KEY } from "../hooks/usePriceRecords";
 import { TRANSACTIONS_STORAGE_KEY } from "../hooks/useTransactions";
+import {
+  getUnderlyingMarketLabel,
+  inferConstituentMarket,
+} from "./marketClassification";
 import { PORTFOLIO_STORAGE_KEY } from "./portfolioStorage";
 import type {
   EtfConstituent,
@@ -178,12 +182,22 @@ export const manualHoldingsToCsv = (holdings: PortfolioHolding[]) =>
 
 export const etfConstituentsToCsv = (constituents: EtfConstituent[]) =>
   toCsv(
-    ["ETF 代號", "股票代號", "股票名稱", "權重", "產業", "資料日期", "來源"],
+    [
+      "ETF 代號",
+      "股票代號",
+      "股票名稱",
+      "權重",
+      "成分市場",
+      "產業",
+      "資料日期",
+      "來源",
+    ],
     constituents.map((constituent) => [
       constituent.etfSymbol,
       constituent.stockSymbol,
       constituent.stockName,
       constituent.weightPercent,
+      getUnderlyingMarketLabel(inferConstituentMarket(constituent)),
       constituent.industry ?? "",
       constituent.asOfDate ?? "",
       constituent.source ?? "",
@@ -222,12 +236,21 @@ export const priceRecordsToCsv = (priceRecords: PriceRecord[]) =>
 
 export const lookthroughExposuresToCsv = (exposures: LookthroughExposure[]) =>
   toCsv(
-    ["股票代號", "股票名稱", "穿透後金額", "投資組合佔比", "產業", "來源"],
+    [
+      "股票代號",
+      "股票名稱",
+      "穿透後金額",
+      "投資組合佔比",
+      "成分市場",
+      "產業",
+      "來源",
+    ],
     exposures.map((exposure) => [
       exposure.stockSymbol,
       exposure.stockName,
       exposure.exposureValue,
       exposure.portfolioWeight,
+      getUnderlyingMarketLabel(exposure.underlyingMarket),
       exposure.industry ?? "未分類",
       exposure.sources
         .map(

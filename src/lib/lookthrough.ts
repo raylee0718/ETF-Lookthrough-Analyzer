@@ -3,7 +3,12 @@ import type {
   IndustryExposure,
   LookthroughExposure,
   PortfolioHolding,
+  UnderlyingMarket,
 } from "../types/portfolio";
+import {
+  inferConstituentMarket,
+  inferHoldingMarket,
+} from "./marketClassification";
 
 export type ConcentrationWarning = {
   stockSymbol: string;
@@ -18,6 +23,7 @@ type ExposureAccumulator = {
   stockName: string;
   exposureValue: number;
   industry?: string;
+  underlyingMarket: UnderlyingMarket;
   sources: LookthroughExposure["sources"];
 };
 
@@ -44,6 +50,7 @@ export function calculateLookthroughExposure(
     stockName,
     exposureValue,
     industry,
+    underlyingMarket,
     sourceSymbol,
     sourceName,
   }: {
@@ -51,18 +58,22 @@ export function calculateLookthroughExposure(
     stockName: string;
     exposureValue: number;
     industry?: string;
+    underlyingMarket: UnderlyingMarket;
     sourceSymbol: string;
     sourceName: string;
   }) => {
     const normalizedStockSymbol = stockSymbol.toUpperCase();
-    const existingExposure = exposuresByStock.get(normalizedStockSymbol);
+    const normalizedMarket = underlyingMarket ?? "UNKNOWN";
+    const exposureKey = `${normalizedMarket}:${normalizedStockSymbol}`;
+    const existingExposure = exposuresByStock.get(exposureKey);
 
     if (!existingExposure) {
-      exposuresByStock.set(normalizedStockSymbol, {
+      exposuresByStock.set(exposureKey, {
         stockSymbol: normalizedStockSymbol,
         stockName,
         exposureValue,
         industry,
+        underlyingMarket: normalizedMarket,
         sources: [{ sourceSymbol, sourceName, exposureValue }],
       });
       return;
@@ -80,6 +91,8 @@ export function calculateLookthroughExposure(
 
     existingExposure.exposureValue += exposureValue;
     existingExposure.industry = existingExposure.industry ?? industry;
+    existingExposure.underlyingMarket =
+      existingExposure.underlyingMarket ?? normalizedMarket;
   };
 
   holdings.forEach((holding) => {
@@ -94,6 +107,7 @@ export function calculateLookthroughExposure(
           exposureValue:
             (holding.marketValue * constituent.weightPercent) / 100,
           industry: constituent.industry,
+          underlyingMarket: inferConstituentMarket(constituent),
           sourceSymbol: holding.symbol,
           sourceName: holding.name,
         });
@@ -105,6 +119,7 @@ export function calculateLookthroughExposure(
       stockSymbol: holding.symbol,
       stockName: holding.name,
       exposureValue: holding.marketValue,
+      underlyingMarket: inferHoldingMarket(holding),
       sourceSymbol: holding.symbol,
       sourceName: holding.name,
     });

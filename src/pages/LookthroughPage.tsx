@@ -11,6 +11,10 @@ import {
   calculateUnmappedEtfHoldings,
   findConcentrationWarnings,
 } from "../lib/lookthrough";
+import {
+  getUnderlyingMarketLabel,
+  summarizeExposureByMarket,
+} from "../lib/marketClassification";
 import { getPortfolioHoldingsForAnalysis } from "../lib/portfolioSource";
 import type { EtfConstituent, PortfolioHolding } from "../types/portfolio";
 import type { PriceRecord } from "../types/prices";
@@ -53,6 +57,10 @@ export default function LookthroughPage({
     () => calculateIndustryExposure(lookthroughExposures),
     [lookthroughExposures],
   );
+  const marketExposures = useMemo(
+    () => summarizeExposureByMarket(lookthroughExposures),
+    [lookthroughExposures],
+  );
   const concentrationWarnings = useMemo(
     () => findConcentrationWarnings(lookthroughExposures),
     [lookthroughExposures],
@@ -68,6 +76,12 @@ export default function LookthroughPage({
         (holding) => !holding.category.toUpperCase().includes("ETF"),
       ),
     [holdingsForAnalysis],
+  );
+  const hasUnknownMarketExposure = lookthroughExposures.some(
+    (exposure) => (exposure.underlyingMarket ?? "UNKNOWN") === "UNKNOWN",
+  );
+  const hasUnmapped00646 = unmappedEtfHoldings.some(
+    (holding) => holding.symbol.toUpperCase() === "00646",
   );
 
   return (
@@ -115,7 +129,22 @@ export default function LookthroughPage({
 
         {unmappedEtfHoldings.length > 0 ? (
           <section className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-amber-950">
-            部分 ETF 尚未匯入成分股，因此會暫時被視為單一持股。若要看到真正的底層股票曝險，請到「ETF 成分股」匯入資料。
+            <div className="grid gap-2 text-sm leading-6">
+              <p>
+                部分 ETF 尚未匯入成分股，因此會暫時被視為單一持股。若要看到真正的底層股票曝險，請到「ETF 成分股」匯入資料。
+              </p>
+              {hasUnmapped00646 ? (
+                <p>
+                  00646 屬於海外成分股 ETF，目前尚未匯入美股成分股，會暫時以單一美股 ETF 曝險呈現。
+                </p>
+              ) : null}
+            </div>
+          </section>
+        ) : null}
+
+        {hasUnknownMarketExposure ? (
+          <section className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-950">
+            部分成分股市場無法判斷，請檢查股票代號或在成分股資料中加入市場欄位。
           </section>
         ) : null}
 
@@ -142,6 +171,22 @@ export default function LookthroughPage({
             helperText={portfolioSource.modeLabel}
           />
         </section>
+
+        <SectionCard
+          title="市場曝險分類"
+          description="依底層成分股市場彙總穿透後曝險，00646 未匯入成分股時會先以單一美股 ETF 曝險呈現。"
+        >
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {marketExposures.map((marketExposure) => (
+              <StatCard
+                helperText={formatPercent(marketExposure.portfolioWeight)}
+                key={marketExposure.market}
+                label={marketExposure.label}
+                value={formatCurrency(marketExposure.exposureValue)}
+              />
+            ))}
+          </div>
+        </SectionCard>
 
         <SectionCard
           title="底層股票曝險"
@@ -179,13 +224,14 @@ export default function LookthroughPage({
           ) : null}
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-left text-sm">
+            <table className="w-full min-w-[980px] text-left text-sm">
               <thead>
                 <tr className="border-b border-stone-200 text-slate-500">
                   <th className="pb-3 font-medium">股票代號</th>
                   <th className="pb-3 font-medium">股票名稱</th>
                   <th className="pb-3 text-right font-medium">穿透後金額</th>
                   <th className="pb-3 text-right font-medium">投資組合佔比</th>
+                  <th className="pb-3 font-medium">成分市場</th>
                   <th className="pb-3 font-medium">產業</th>
                   <th className="pb-3 font-medium">來源</th>
                 </tr>
@@ -205,6 +251,9 @@ export default function LookthroughPage({
                     </td>
                     <td className="py-4 text-right text-slate-600">
                       {formatPercent(exposure.portfolioWeight)}
+                    </td>
+                    <td className="py-4 text-slate-600">
+                      {getUnderlyingMarketLabel(exposure.underlyingMarket)}
                     </td>
                     <td className="py-4 text-slate-600">
                       {exposure.industry ?? "未分類"}

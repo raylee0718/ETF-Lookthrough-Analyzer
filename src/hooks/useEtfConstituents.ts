@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { mockEtfConstituents } from "../data/mockData";
 import { getLatestConstituentsByEtf } from "../lib/constituentVersions";
+import { inferConstituentMarket } from "../lib/marketClassification";
 import type { EtfConstituent } from "../types/portfolio";
 
 export const ETF_CONSTITUENTS_STORAGE_KEY = "etf-lookthrough-etf-constituents";
@@ -23,6 +24,11 @@ const isEtfConstituent = (value: unknown): value is EtfConstituent => {
     Number.isFinite(constituent.weightPercent) &&
     (constituent.industry === undefined ||
       typeof constituent.industry === "string") &&
+    (constituent.underlyingMarket === undefined ||
+      constituent.underlyingMarket === "TW" ||
+      constituent.underlyingMarket === "US" ||
+      constituent.underlyingMarket === "OTHER" ||
+      constituent.underlyingMarket === "UNKNOWN") &&
     (constituent.asOfDate === undefined ||
       typeof constituent.asOfDate === "string") &&
     (constituent.source === undefined || typeof constituent.source === "string")
@@ -63,6 +69,7 @@ const normalizeInput = (
   stockName: input.stockName.trim(),
   weightPercent: input.weightPercent,
   industry: input.industry?.trim() || undefined,
+  underlyingMarket: input.underlyingMarket ?? inferConstituentMarket(input),
   asOfDate: input.asOfDate?.trim() || undefined,
   source: input.source?.trim() || undefined,
 });
