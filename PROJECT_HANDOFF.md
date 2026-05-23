@@ -89,6 +89,7 @@ ETF Lookthrough Analyzer 是 local-first 的個人投資工具，用來分析自
 - Step 23: 0050 ETF holdings provider prototype：已完成。
 - Step 39: underlying market classification for 台股 / 美股 / 其他 / 未分類：已完成。00646 自動 provider 仍未實作，只支援手動 / CSV 匯入美股成分。
 - Step 41: lookthrough display threshold and small exposure grouping：已完成。只影響表格顯示，不改變計算總數。
+- Step 42: large imported constituent display threshold QA documentation：已完成。QA checklist 位於 `docs/LOOKTHROUGH_DISPLAY_THRESHOLD_QA.md`。
 
 Step 11 特別說明：
 

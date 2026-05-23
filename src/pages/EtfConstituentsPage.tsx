@@ -46,7 +46,9 @@ const samplePasteText = `股票代號,股票名稱,權重,產業
 const sample00646PasteText = `股票代號,股票名稱,持股權重,市場
 AAPL,Apple Inc.,7.00%,美股
 MSFT,Microsoft,6.50%,美股
-NVDA,NVIDIA,6.00%,美股`;
+NVDA,NVIDIA,6.00%,美股
+AMZN,Amazon.com Inc.,3.50%,美股
+META,Meta Platforms Inc.,2.80%,美股`;
 
 type EtfConstituentsPageProps = {
   holdings: PortfolioHolding[];
