@@ -398,3 +398,7 @@ MVP 的核心使用方式是：手動輸入目前 ETF / 股票持股市值，匯
 ## Step 47 - 00646 Guarded Update UI
 
 Step 47 已將 `00646` 加入 ETF 成分股頁的 guarded update workflow。若目前持股包含 `00646`，會被納入「一鍵更新目前持有 ETF」批次更新；單檔更新區也會提供 `更新 00646 元大S&P500`。00646 卡片會標示為美股成分 ETF，提醒期貨 / 現金 / 保證金不會列入股票穿透成分。批次與單檔預覽仍只顯示前 10 筆，完整約 503 筆在確認後才會取代本機 ETF constituent records。儲存 safety checks 沿用既有規則：`ok` 或 `partial`、無 errors、至少 20 筆、權重有效。00646 constituents 會保留 `underlyingMarket: "US"`，穿透分析的小額美股成分彙總仍由既有 display threshold 控制。CSV / 貼上表格匯入仍保留為 fallback。
+
+## Step 48A - ETF Update Freshness Diagnostics
+
+Step 48A 新增 ETF update freshness diagnostics。`/api/etf-holdings` 正常 response 會包含 `fetchedAt`、`asOfDate`、`source`、`sourceUrl`、`cacheControl`、`cacheNote` 與 `refreshRequested`。一般 request 維持短期 Vercel/CDN cache；若使用 `/api/etf-holdings?symbol=00646&refresh=1`，API 會回傳 `Cache-Control: no-store` 並標記 `refreshRequested: true`。`EtfConstituentsPage` 的批次與單檔更新共用「強制重新抓取，避免快取」checkbox，preview 會顯示官方資料日期、本次抓取時間、資料來源、是否強制重新抓取與快取設定。這不新增背景排程、不自動寫入資料，也不改變 lookthrough calculation。

@@ -18,9 +18,20 @@ export class EtfHoldingsProxyClientError extends Error {
 
 export async function fetchEtfHoldingsViaProxy(
   symbol: EtfHoldingsProxySymbol,
+  options: {
+    forceRefresh?: boolean;
+  } = {},
 ): Promise<EtfHoldingsProxyResponse> {
+  const query = new URLSearchParams({
+    symbol,
+  });
+
+  if (options.forceRefresh) {
+    query.set("refresh", "1");
+  }
+
   const response = await fetch(
-    `/api/etf-holdings?symbol=${encodeURIComponent(symbol)}`,
+    `/api/etf-holdings?${query.toString()}`,
     {
       method: "GET",
       headers: {

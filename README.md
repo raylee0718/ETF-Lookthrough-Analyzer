@@ -386,3 +386,17 @@ Step 47 起，`00646` 已加入 ETF 成分股頁的 guarded update workflow：
 - 儲存前仍需預覽並確認；只有 `ok` 或 `partial`、無 errors、至少 20 筆且權重有效的結果可儲存。
 - 穿透分析會用既有顯示門檻彙總小額美股成分，不改變核心計算總額。
 - CSV / 貼上表格匯入仍保留為 fallback。
+
+## ETF 更新新鮮度診斷
+
+Step 48A 起，ETF proxy response 與 ETF 成分股頁會明確顯示資料新鮮度：
+
+- `asOfDate` / 官方資料日期：發行人官方資料本身的日期，不一定等於今天；若官方尚未更新，可能仍停在前一交易日。
+- `fetchedAt` / 本次抓取時間：本專案 serverless proxy 實際處理這次更新請求的時間。
+- `source` 與 `sourceUrl`：官方來源標籤與來源 URL。
+- `cacheControl` / `cacheNote`：說明此次 response 是否使用一般短期快取。
+- `refreshRequested`：使用者是否勾選「強制重新抓取，避免快取」。
+
+一般更新 request 仍使用短期 Vercel/CDN cache；若勾選強制重新抓取，client 會呼叫 `/api/etf-holdings?symbol=00646&refresh=1` 這類 URL，API response header 會改為 `Cache-Control: no-store`，並在 debug/freshness 欄位標記 `refreshRequested: true`。
+
+本專案目前仍不執行背景每日更新、排程工作或自動寫入本機資料。使用者按下更新後才會抓取官方來源，預覽並確認後才會取代 localStorage 中的 ETF 成分股資料。CSV / 貼上表格匯入仍保留為 fallback。

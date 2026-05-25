@@ -19,6 +19,9 @@ type EtfHoldingsProxyResponse = {
   sourceUrl: string;
   fetchedAt: string;
   asOfDate?: string;
+  cacheControl?: string;
+  cacheNote?: string;
+  refreshRequested?: boolean;
   constituents: EtfConstituent[];
   warnings: string[];
   errors: string[];
@@ -161,6 +164,11 @@ const JSON_HEADERS = {
 const getSymbol = (value: string | string[] | undefined) => {
   const rawSymbol = Array.isArray(value) ? value[0] : value;
   return rawSymbol?.trim().toUpperCase();
+};
+
+const isRefreshRequested = (value: string | string[] | undefined) => {
+  const rawValue = Array.isArray(value) ? value[0] : value;
+  return rawValue === "1" || rawValue?.toLowerCase() === "true";
 };
 
 const getMinguoDate = (date = new Date()) => {
@@ -732,6 +740,10 @@ const getStatus = (parsed: ParsedHoldings): EtfHoldingsProxyResponse["status"] =
 const buildResponse = (
   symbol: EtfHoldingsProxySymbol,
   parsed: ParsedHoldings,
+  options: {
+    cacheControl: string;
+    refreshRequested: boolean;
+  },
 ): EtfHoldingsProxyResponse => ({
   symbol,
   status: getStatus(parsed),
@@ -739,6 +751,11 @@ const buildResponse = (
   sourceUrl: SOURCE_URLS[symbol],
   fetchedAt: new Date().toISOString(),
   asOfDate: parsed.asOfDate,
+  cacheControl: options.cacheControl,
+  cacheNote: options.refreshRequested
+    ? "Force refresh requested; response sent with no-store cache header."
+    : "Normal proxy requests may be cached briefly by Vercel/CDN. Official asOfDate can still lag today if the issuer has not published new data.",
+  refreshRequested: options.refreshRequested,
   constituents: parsed.constituents,
   warnings: parsed.warnings,
   errors: parsed.errors,
@@ -898,8 +915,13 @@ const fetchBySymbol = (symbol: EtfHoldingsProxySymbol) => {
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const refreshRequested = isRefreshRequested(req.query.refresh);
+  const cacheControl = refreshRequested
+    ? "no-store"
+    : "s-maxage=1800, stale-while-revalidate=1800";
+
   res.setHeader("Content-Type", "application/json; charset=utf-8");
-  res.setHeader("Cache-Control", "s-maxage=1800, stale-while-revalidate=1800");
+  res.setHeader("Cache-Control", cacheControl);
 
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
@@ -926,7 +948,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const parsed = await fetchBySymbol(typedSymbol);
     const failed = parsed.errors.length > 0 && parsed.constituents.length === 0;
 
-    res.status(failed ? 502 : 200).json(buildResponse(typedSymbol, parsed));
+    res.status(failed ? 502 : 200).json(
+      buildResponse(typedSymbol, parsed, {
+        cacheControl,
+        refreshRequested,
+      }),
+    );
   } catch (error) {
     const message =
       error instanceof Error
@@ -934,37 +961,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         : "Unknown error while fetching official ETF holdings source.";
 
     res.status(502).json(
-      buildResponse(typedSymbol, {
-        constituents: [],
-        warnings: [],
-        errors: [
-          `${SOURCE_LABELS[typedSymbol]} fetch failed. ${message}`,
-          typedSymbol === "00981A"
-            ? "00981A may be blocked by issuer network policy from the serverless runtime; this should not block 0050, 00646, or 00994A."
-            : "",
-        ].filter(Boolean),
-        debug:
-          typedSymbol === "00981A"
-            ? {
-                attempts: [
-                  {
-                    variantName: "handler-catch",
-                    requestUrl: SOURCE_URLS[typedSymbol],
-                    method: "POST",
-                    fetchErrorName: error instanceof Error ? error.name : undefined,
-                    fetchErrorMessage:
-                      error instanceof Error ? error.message : String(error),
-                    fetchErrorCauseName: getErrorCause(error)?.name,
-                    fetchErrorCauseCode: getErrorCause(error)?.code,
-                    fetchErrorCauseMessage: getErrorCause(error)?.message,
-                    beforeResponse: true,
-                  },
-                ],
-                recommendation:
-                  "Inspect the 00981A request variant diagnostics. Keep CSV fallback if the issuer blocks the Vercel runtime.",
-              }
-            : undefined,
-      }),
+      buildResponse(
+        typedSymbol,
+        {
+          constituents: [],
+          warnings: [],
+          errors: [
+            `${SOURCE_LABELS[typedSymbol]} fetch failed. ${message}`,
+            typedSymbol === "00981A"
+              ? "00981A may be blocked by issuer network policy from the serverless runtime; this should not block 0050, 00646, or 00994A."
+              : "",
+          ].filter(Boolean),
+          debug:
+            typedSymbol === "00981A"
+              ? {
+                  attempts: [
+                    {
+                      variantName: "handler-catch",
+                      requestUrl: SOURCE_URLS[typedSymbol],
+                      method: "POST",
+                      fetchErrorName: error instanceof Error ? error.name : undefined,
+                      fetchErrorMessage:
+                        error instanceof Error ? error.message : String(error),
+                      fetchErrorCauseName: getErrorCause(error)?.name,
+                      fetchErrorCauseCode: getErrorCause(error)?.code,
+                      fetchErrorCauseMessage: getErrorCause(error)?.message,
+                      beforeResponse: true,
+                    },
+                  ],
+                  recommendation:
+                    "Inspect the 00981A request variant diagnostics. Keep CSV fallback if the issuer blocks the Vercel runtime.",
+                }
+              : undefined,
+        },
+        {
+          cacheControl,
+          refreshRequested,
+        },
+      ),
     );
   }
 }

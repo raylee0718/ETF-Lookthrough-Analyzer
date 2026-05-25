@@ -33,6 +33,9 @@ export type EtfHoldingsProxyResponse = {
   sourceUrl: string;
   fetchedAt: string;
   asOfDate?: string;
+  cacheControl?: string;
+  cacheNote?: string;
+  refreshRequested?: boolean;
   constituents: EtfConstituent[];
   warnings: string[];
   errors: string[];

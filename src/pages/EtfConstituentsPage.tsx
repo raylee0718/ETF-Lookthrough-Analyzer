@@ -446,6 +446,7 @@ export default function EtfConstituentsPage({
   >({});
   const [isBatchProxyLoading, setIsBatchProxyLoading] = useState(false);
   const [batchProxyMessage, setBatchProxyMessage] = useState("");
+  const [forceProxyRefresh, setForceProxyRefresh] = useState(false);
 
   const normalizedEtfSymbol = etfSymbol.trim().toUpperCase();
   const is00646ImportMode = normalizedEtfSymbol === "00646";
@@ -985,7 +986,9 @@ export default function EtfConstituentsPage({
 
     for (const etf of heldSupportedProxyEtfs) {
       try {
-        const result = await fetchEtfHoldingsViaProxy(etf.symbol);
+        const result = await fetchEtfHoldingsViaProxy(etf.symbol, {
+          forceRefresh: forceProxyRefresh,
+        });
         nextResults[etf.symbol] = result;
       } catch (error) {
         nextErrors[etf.symbol] = {
@@ -1073,7 +1076,9 @@ export default function EtfConstituentsPage({
     }));
 
     try {
-      const result = await fetchEtfHoldingsViaProxy(symbol);
+      const result = await fetchEtfHoldingsViaProxy(symbol, {
+        forceRefresh: forceProxyRefresh,
+      });
       setProxyUpdateResults((currentResults) => ({
         ...currentResults,
         [symbol]: result,
@@ -1220,7 +1225,37 @@ export default function EtfConstituentsPage({
                   {result.source}
                 </span>
               </p>
+              <p>
+                <span className="text-slate-500">官方資料日期：</span>
+                <span className="font-semibold text-slate-950">
+                  {result.asOfDate ?? "-"}
+                </span>
+              </p>
+              <p>
+                <span className="text-slate-500">本次抓取時間：</span>
+                <span className="font-semibold text-slate-950">
+                  {formatDiagnosticTime(result.fetchedAt)}
+                </span>
+              </p>
+              <p>
+                <span className="text-slate-500">是否強制重新抓取：</span>
+                <span className="font-semibold text-slate-950">
+                  {result.refreshRequested ? "是" : "否"}
+                </span>
+              </p>
+              <p>
+                <span className="text-slate-500">快取設定：</span>
+                <span className="font-semibold text-slate-950">
+                  {result.cacheControl ?? "-"}
+                </span>
+              </p>
             </div>
+
+            <p className="rounded-lg border border-stone-200 bg-white p-3 text-slate-600">
+              資料來源：{result.source}
+              {result.sourceUrl ? ` / ${result.sourceUrl}` : ""}
+              {result.cacheNote ? `。${result.cacheNote}` : ""}
+            </p>
 
             {result.status === "partial" ? (
               <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
@@ -1394,6 +1429,20 @@ export default function EtfConstituentsPage({
                   ))}
                 </div>
               ) : null}
+              <p>
+                本工具會在你按下更新時抓取官方來源。官方資料日期不一定等於今天；若官方尚未更新，asOfDate 可能仍會停在前一交易日。
+              </p>
+              <label className="flex items-center gap-2 text-sm font-medium text-blue-950">
+                <input
+                  checked={forceProxyRefresh}
+                  className="h-4 w-4 rounded border-blue-300"
+                  onChange={(event) =>
+                    setForceProxyRefresh(event.target.checked)
+                  }
+                  type="checkbox"
+                />
+                強制重新抓取，避免快取
+              </label>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <button
                   className="rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300"
@@ -1531,6 +1580,36 @@ export default function EtfConstituentsPage({
                         ) : null}
                         {result ? (
                           <div className="mt-3 grid gap-3">
+                            <div className="grid gap-2 rounded-lg border border-stone-200 bg-white p-3 text-slate-600 sm:grid-cols-2">
+                              <p>
+                                官方資料日期：
+                                <span className="font-semibold text-slate-950">
+                                  {result.asOfDate ?? "-"}
+                                </span>
+                              </p>
+                              <p>
+                                本次抓取時間：
+                                <span className="font-semibold text-slate-950">
+                                  {formatDiagnosticTime(result.fetchedAt)}
+                                </span>
+                              </p>
+                              <p>
+                                資料來源：
+                                <span className="font-semibold text-slate-950">
+                                  {result.source}
+                                </span>
+                              </p>
+                              <p>
+                                是否強制重新抓取：
+                                <span className="font-semibold text-slate-950">
+                                  {result.refreshRequested ? "是" : "否"}
+                                </span>
+                              </p>
+                              <p className="sm:col-span-2">
+                                快取設定：{result.cacheControl ?? "-"}
+                                {result.cacheNote ? `。${result.cacheNote}` : ""}
+                              </p>
+                            </div>
                             {result.status === "partial" ? (
                               <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
                                 此來源回傳 partial，請確認 warnings 後再儲存。
