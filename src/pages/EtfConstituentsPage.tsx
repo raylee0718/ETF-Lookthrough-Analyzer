@@ -273,15 +273,36 @@ const getProxyResultWeightTotal = (result: EtfHoldingsProxyResponse) =>
     0,
   );
 
+const isValidProxyWeight = (weightPercent: number) =>
+  Number.isFinite(weightPercent) && weightPercent >= 0;
+
+const isPositiveProxyWeight = (weightPercent: number) =>
+  isValidProxyWeight(weightPercent) && weightPercent > 0;
+
+const isAllowed00646NonStockWarning = (warning: string) =>
+  /ignored non-stock 00646 rows/i.test(warning) &&
+  /futures?/i.test(warning) &&
+  /cash/i.test(warning) &&
+  /margin/i.test(warning);
+
+const hasOnlyAllowedProxyWarnings = (result: EtfHoldingsProxyResponse) => {
+  if (result.symbol !== "00646") {
+    return true;
+  }
+
+  return result.warnings.every(isAllowed00646NonStockWarning);
+};
+
 const isProxyResultSafeToSave = (result: EtfHoldingsProxyResponse) =>
   (result.status === "ok" || result.status === "partial") &&
   result.errors.length === 0 &&
-  result.constituents.length >= 20 &&
-  result.constituents.every(
-    (constituent) =>
-      Number.isFinite(constituent.weightPercent) &&
-      constituent.weightPercent > 0,
-  );
+  result.constituents.filter((constituent) =>
+    isPositiveProxyWeight(constituent.weightPercent),
+  ).length >= 20 &&
+  result.constituents.every((constituent) =>
+    isValidProxyWeight(constituent.weightPercent),
+  ) &&
+  hasOnlyAllowedProxyWarnings(result);
 
 const splitDelimitedLine = (line: string, delimiter: "," | "\t") => {
   if (delimiter === "\t") {
@@ -1355,7 +1376,7 @@ export default function EtfConstituentsPage({
 
             {!isSafeToSave ? (
               <p className="rounded-lg border border-stone-200 bg-white p-3 text-slate-600">
-                只有在有至少 20 筆成分股、每筆權重有效，且沒有 errors 時才能儲存。
+                只有在至少 20 筆成分股有正權重、所有權重皆有效且非負、沒有 errors，且 00646 僅有忽略期貨 / 現金 / 保證金這類非股票列 warnings 時才能儲存。
               </p>
             ) : null}
           </div>
