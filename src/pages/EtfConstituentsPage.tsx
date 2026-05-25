@@ -193,9 +193,12 @@ type BatchProxyUpdateError = ProxyUpdateError & {
 };
 
 type PriorityProxyEtf = {
-  symbol: Extract<EtfHoldingsProxySymbol, "0050" | "00981A">;
+  symbol: Extract<EtfHoldingsProxySymbol, "0050" | "00646" | "00981A">;
   name: string;
   buttonLabel: string;
+  marketScope?: "TW" | "US";
+  label?: string;
+  note?: string;
 };
 
 type HeldEtfSuggestion = {
@@ -216,6 +219,15 @@ const priorityProxyEtfs: PriorityProxyEtf[] = [
     symbol: "00981A",
     name: "主動統一台股增長",
     buttonLabel: "更新 00981A 主動統一台股增長",
+  },
+  {
+    symbol: "00646",
+    name: "元大S&P500",
+    buttonLabel: "更新 00646 元大S&P500",
+    marketScope: "US",
+    label: "美股成分 ETF",
+    note:
+      "00646 為海外成分股 ETF，更新後會以美股成分呈現。期貨 / 現金 / 保證金不會列入股票穿透成分。",
   },
 ];
 
@@ -241,7 +253,7 @@ const getUnsupportedEtfMessage = (holding: PortfolioHolding) => {
   const category = holding.category.trim().toUpperCase();
 
   if (symbol === "00646") {
-    return "00646 屬於海外成分股 ETF，暫不支援自動穿透更新。";
+    return "00646 已支援官方 proxy 更新；若更新失敗，仍可使用 CSV 匯入或暫以單一美股 ETF 曝險呈現。";
   }
 
   if (category.includes("海外")) {
@@ -1131,6 +1143,16 @@ export default function EtfConstituentsPage({
             <h3 className="mt-1 text-base font-semibold text-slate-950">
               {etf.name}
             </h3>
+            {etf.label ? (
+              <p className="mt-1 text-xs font-medium text-emerald-700">
+                {etf.label}
+              </p>
+            ) : null}
+            {etf.note ? (
+              <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
+                {etf.note}
+              </p>
+            ) : null}
           </div>
           <button
             className="rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300"
@@ -1236,6 +1258,15 @@ export default function EtfConstituentsPage({
                   </details>
                 ) : null}
               </div>
+            ) : null}
+
+            {result.constituents.length > 10 ? (
+              <p className="rounded-lg border border-stone-200 bg-white p-3 text-slate-600">
+                僅預覽前 10 筆，完整 {result.constituents.length} 筆會在確認後儲存。
+                {result.symbol === "00646"
+                  ? " 00646 成分股較多，穿透分析會依顯示門檻彙總小額美股成分。"
+                  : ""}
+              </p>
             ) : null}
 
             <div className="overflow-x-auto">
@@ -1521,6 +1552,15 @@ export default function EtfConstituentsPage({
                                 ))}
                               </div>
                             ) : null}
+                            {result.constituents.length > 10 ? (
+                              <p className="rounded-lg border border-stone-200 bg-white p-3 text-slate-600">
+                                僅預覽前 10 筆，完整{" "}
+                                {result.constituents.length} 筆會在確認後儲存。
+                                {result.symbol === "00646"
+                                  ? " 00646 / S&P500 類 ETF 成分較多，穿透分析會依顯示門檻彙總小額美股成分。"
+                                  : ""}
+                              </p>
+                            ) : null}
                             <div className="overflow-x-auto">
                               <table className="w-full min-w-[620px] text-left text-sm">
                                 <thead>
@@ -1637,7 +1677,7 @@ export default function EtfConstituentsPage({
 
             <div className="grid gap-2 rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm leading-6 text-slate-600">
               <p>
-                00646 等海外 ETF 暫不支援；若需要分析，請先手動或 CSV 匯入成分股。
+                00646 已可透過官方元大 PCF/Daily JSON 更新股票成分；期貨 / 現金 / 保證金會排除在股票穿透成分之外，CSV / 手動匯入仍保留為 fallback。
               </p>
               <p>
                 00994A 已非目前優先標的，保留為低優先度 / CSV fallback，不顯示為主要更新按鈕。

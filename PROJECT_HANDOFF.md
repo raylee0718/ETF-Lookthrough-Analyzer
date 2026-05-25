@@ -93,7 +93,7 @@ ETF Lookthrough Analyzer 是 local-first 的個人投資工具，用來分析自
 - Step 43: Auto MVP one-click update for currently held supported ETFs：已完成。Batch update 只包含持有中的 `0050` / `00981A`，先預覽再確認儲存。
 - Step 44: official 00646 holdings source feasibility investigation：已完成。官方 Yuanta PCF/Daily JSON 可提供 503 筆股票列與直接權重，決策為 `ready_for_parser_poc`，但尚未實作 00646 provider。
 - Step 45: 00646 official holdings parser proof-of-concept：已完成。`parseYuanta00646HoldingsResponse` 只解析 `FundWeights.StockWeights[]`，固定 `underlyingMarket: "US"`，尚未接入自動更新 UI。
-- Step 46: 00646 ETF holdings serverless proxy support：已完成。`/api/etf-holdings?symbol=00646` 已加入 whitelist 並回傳 normalized US constituents；UI 更新按鈕與 batch update 尚未啟用。
+- Step 46: 00646 ETF holdings serverless proxy support：已完成。`/api/etf-holdings?symbol=00646` 已加入 whitelist 並回傳 normalized US constituents。
 
 Step 11 特別說明：
 
@@ -211,7 +211,7 @@ Step 42 起，00646 / US constituent 匯入會清理常見 Bloomberg-like ticker
 
 Step 41 起，「穿透分析」頁有 display-only 顯示門檻；Step 42 將預設最小顯示金額調整為 `NT$10`，最小投組佔比維持 `0.01%`，最多顯示筆數預設 `50`。低於門檻或超過最多顯示筆數的 exposure 會依 `underlyingMarket` 彙總為其他台股 / 美股 / 其他市場 / 未分類成分。這只改變底層股票曝險表格列出的細項，不改變 `lookthrough.ts` 的原始計算、總市值、市場曝險、產業曝險或集中度計算。
 
-Step 43 起，「ETF 成分股」頁提供 Auto MVP batch update：依目前 `HoldingsPage` 持股偵測 `0050` / `00981A`，按「更新目前持有且支援的 ETF」後透過既有 Vercel proxy 抓取官方來源，顯示批次預覽表，再由使用者確認「儲存可用的更新結果」。儲存只會寫入通過安全檢查的 ETF，failed / unsafe 會略過。`00646` 不會自動抓取，仍是 CSV fallback 或單一美股 ETF placeholder；`00994A` 不列入主要 batch update。
+Step 43 起，「ETF 成分股」頁提供 Auto MVP batch update：依目前 `HoldingsPage` 持股偵測 `0050` / `00981A`，按「更新目前持有且支援的 ETF」後透過既有 Vercel proxy 抓取官方來源，顯示批次預覽表，再由使用者確認「儲存可用的更新結果」。儲存只會寫入通過安全檢查的 ETF，failed / unsafe 會略過。Step 47 起，`00646` 也可透過 guarded proxy workflow 更新；`00994A` 不列入主要 batch update。
 
 Step 44 確認 00646 的官方 Yuanta ETFAPI bridge PCF/Daily JSON 可作為未來 parser POC 來源：`FundWeights.StockWeights` 有 503 筆股票列、Bloomberg-like ticker、名稱、股數與直接 `weights` 權重；`PCF.trandate` 可作為資料日期。JSON 同時含 `FutureWeights` 與 `Cash` 區塊，未來 parser POC 應先只轉換股票列並固定 `underlyingMarket: "US"`，不要把期貨 / 現金塞成股票成分股。詳細記錄在 `docs/OVERSEAS_ETF_00646_PROVIDER_FEASIBILITY.md`。
 
@@ -394,3 +394,7 @@ Step 26 後，App 主要導覽改為 MVP 流程：
 MVP 的核心使用方式是：手動輸入目前 ETF / 股票持股市值，匯入或測試取得 ETF 成分股，再到穿透分析查看底層台股曝險、投組佔比、來源拆解、產業曝險、集中度提醒與未對應 ETF 提醒。
 
 交易紀錄、價格自動化、備份、Dashboard 與 provider diagnostics 屬於進階能力，不是 MVP 必要條件。不要刪除這些功能，但也不要讓它們主導主要流程。本專案仍應維持 personal ETF lookthrough analyzer 定位，不應變成 active ETF research platform。
+
+## Step 47 - 00646 Guarded Update UI
+
+Step 47 已將 `00646` 加入 ETF 成分股頁的 guarded update workflow。若目前持股包含 `00646`，會被納入「一鍵更新目前持有 ETF」批次更新；單檔更新區也會提供 `更新 00646 元大S&P500`。00646 卡片會標示為美股成分 ETF，提醒期貨 / 現金 / 保證金不會列入股票穿透成分。批次與單檔預覽仍只顯示前 10 筆，完整約 503 筆在確認後才會取代本機 ETF constituent records。儲存 safety checks 沿用既有規則：`ok` 或 `partial`、無 errors、至少 20 筆、權重有效。00646 constituents 會保留 `underlyingMarket: "US"`，穿透分析的小額美股成分彙總仍由既有 display threshold 控制。CSV / 貼上表格匯入仍保留為 fallback。

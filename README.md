@@ -241,7 +241,7 @@ Proxy 目前會回傳 normalized constituents，response 包含 `symbol`、`stat
 
 支援狀態：
 - `0050`：元大官方 PCF/Daily JSON，使用既有 `parseYuanta0050PcfResponse`。
-- `00646`：元大官方 PCF/Daily JSON，解析 `FundWeights.StockWeights[]` 為美股成分，排除期貨 / 現金 / 保證金；API endpoint 已存在，但 UI 更新按鈕尚未啟用。
+- `00646`：元大官方 PCF/Daily JSON，解析 `FundWeights.StockWeights[]` 為美股成分，排除期貨 / 現金 / 保證金；已加入 guarded UI 更新與 held ETF batch update。
 - `00981A`：統一投信官方 `POST https://www.ezmoney.com.tw/ETF/Transaction/GetPCF`，使用既有 `parseUniPresident00981APcfResponse`。本機 Node fetch 對此 endpoint 曾出現 network-level failure；proxy 會以清楚的 `failed` response 回報。
 - `00994A`：第一金投信官方 `POST https://www.fsitc.com.tw/WebAPI.aspx/Get_hd`，body 為 `{"pStrFundID":"182","pStrDate":""}`，使用既有 `parseFirst00994AGetHdResponse`。
 
@@ -286,7 +286,7 @@ Step 43 在「ETF 成分股」頁加入 batch update workflow。App 會根據「
 - `00981A` 可能回傳 `partial`；只要沒有 errors、成分股數與權重有效，仍可儲存。
 - 使用者必須按「儲存可用的更新結果」並確認後，才會取代 localStorage 中對應 ETF 的成分股資料。
 - 儲存時只保存通過安全檢查的 ETF，失敗或 unsafe 的 ETF 會被略過。
-- `00646` 尚未支援自動更新，仍維持 CSV / 貼上表格匯入，或暫以單一美股 ETF 曝險呈現。
+- `00646` 已支援 guarded 自動更新；CSV / 貼上表格匯入仍維持 fallback。
 - `00994A` 因使用者已售出，不列入主要 batch update 流程。
 - 單檔更新按鈕仍保留，供 batch update 失敗時手動測試。
 
@@ -295,7 +295,7 @@ Step 43 在「ETF 成分股」頁加入 batch update workflow。App 會根據「
 Step 38 讓「ETF 成分股」頁依照「設定我的持股」中的 ETF 顯示更新建議：
 
 - 持股中若有 `0050` 或 `00981A`，會顯示主要更新卡片，可先透過 Vercel proxy 抓官方來源、預覽，再手動確認儲存。
-- 持股中若有 `00646` 或海外 ETF，會提示「海外 ETF 暫不支援成分股自動更新」，仍以 CSV / 手動匯入作為 fallback。
+- 持股中若有 `00646`，會顯示 guarded 自動更新卡片；其他海外 ETF 仍以 CSV / 手動匯入作為 fallback。
 - 持股中若有其他尚未支援 ETF，會提示尚未建立自動來源，請使用 CSV 匯入。
 - `0050` / `00981A` 若目前不在持股中，只會放在「其他可測試的支援 ETF」次要區域。
 - `00994A` 因使用者已售出，維持低優先度 / CSV fallback，不作為主要更新建議。
@@ -309,7 +309,7 @@ Step 39 新增底層成分市場分類，讓穿透分析可以分開顯示台股
 - 成分市場型別：`TW` 台股成分、`US` 美股成分、`OTHER` 其他市場、`UNKNOWN` 未分類。
 - `0050` 與 `00981A` 的官方 proxy / CSV 成分會依股票代號自動判斷為台股成分。
 - `00646` 被視為海外 / 美股成分 ETF；若尚未匯入成分股，穿透分析會暫時以單一美股 ETF 曝險呈現，不會列為台股成分。
-- `00646` 仍沒有自動 provider，也不會自動抓 S&P 500 成分股。若要分析底層股票，請在「ETF 成分股」用手動或 CSV 匯入。
+- `00646` 已可透過官方元大資料更新股票成分，但仍不會抓取第三方 S&P 500 資料；CSV / 手動匯入仍可使用。
 - CSV / 貼上表格支援選填市場欄位：`市場`、`成分市場`、`股票市場`、`market`、`underlyingMarket`。
 - 支援的市場值：`台股`、`台灣`、`TW`、`Taiwan`、`美股`、`美國`、`US`、`USA`、`其他`、`OTHER`。
 
@@ -357,9 +357,9 @@ Step 45 已建立 00646 parser proof-of-concept：
 - Bloomberg-like tickers 會清理，例如 `NVDA UQ` -> `NVDA`、`JPM UN` -> `JPM`、`BRK/B UN` -> `BRK.B`。
 - `FutureWeights`、`CashPosition`、`Margin` 會被忽略，不會塞進股票成分股。
 - fixture / smoke utility 位於 `src/data/sample00646HoldingsResponse.ts`。
-- 00646 自動更新 UI 尚未啟用，仍不列入 one-click batch update。
+- 00646 自動更新 UI 已啟用，並可在目前持股包含 00646 時列入 one-click batch update。
 
-Step 46 已將 00646 加入 `/api/etf-holdings?symbol=00646` serverless proxy。API 會回傳 normalized US constituents，並排除 futures / cash / margin；但 00646 仍未加入任何 ETF 成分股更新按鈕或 batch update。
+Step 46 已將 00646 加入 `/api/etf-holdings?symbol=00646` serverless proxy。Step 47 起，00646 已加入 guarded ETF 成分股更新按鈕與 held ETF batch update。API 會回傳 normalized US constituents，並排除 futures / cash / margin。
 
 ## 小額成分彙總
 
@@ -373,3 +373,16 @@ Step 41 / 42 在「穿透分析」頁加入顯示門檻，適合 00646 / S&P 500
 - 彙總只影響「底層股票曝險」表格的顯示，不改變原始 lookthrough exposure、總市值、市場曝險、產業曝險或集中度計算。
 - 若取消「將低於門檻的成分彙總為其他」，表格會顯示全部成分股明細。
 - Step 42 QA checklist：`docs/LOOKTHROUGH_DISPLAY_THRESHOLD_QA.md`。
+
+## 00646 自動更新
+
+Step 47 起，`00646` 已加入 ETF 成分股頁的 guarded update workflow：
+
+- 若目前持股包含 `00646`，會出現在「一鍵更新目前持有 ETF」批次更新中。
+- 單檔更新區也可手動測試 `更新 00646 元大S&P500`。
+- 資料來源為官方元大 PCF/Daily JSON，透過 `/api/etf-holdings?symbol=00646` proxy 取得。
+- API 回傳股票成分約 503 筆，並固定標記為 `underlyingMarket: "US"` / 美股成分。
+- 期貨 / 現金 / 保證金不會列入股票穿透成分，會以 warnings 顯示。
+- 儲存前仍需預覽並確認；只有 `ok` 或 `partial`、無 errors、至少 20 筆且權重有效的結果可儲存。
+- 穿透分析會用既有顯示門檻彙總小額美股成分，不改變核心計算總額。
+- CSV / 貼上表格匯入仍保留為 fallback。
