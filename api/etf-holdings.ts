@@ -48,6 +48,9 @@ type EtfHoldingsProxyDebugAttempt = {
 type EtfHoldingsProxyDebug = {
   attempts: EtfHoldingsProxyDebugAttempt[];
   recommendation?: string;
+  requestDateLabel?: string;
+  requestVariant?: string;
+  officialAsOfDate?: string;
 };
 
 type VercelRequest = {
@@ -858,7 +861,17 @@ const fetch00981A = async (): Promise<ParsedHoldings> => {
       const parsed = parseUniPresident00981APcfResponse(raw);
 
       if (parsed.constituents.length > 0 && parsed.errors.length === 0) {
-        return parsed;
+        return {
+          ...parsed,
+          debug: {
+            attempts,
+            requestDateLabel: minguoDate,
+            requestVariant: variant.name,
+            officialAsOfDate: parsed.asOfDate,
+            recommendation:
+              "00981A requests the current ROC date first, then falls back to empty/no-date variants if needed. Trust officialAsOfDate when it differs from today's fetchedAt.",
+          },
+        };
       }
 
       parseFailures.push(`${variant.name}: ${parsed.errors.join("; ") || "no valid constituents"}`);
@@ -876,6 +889,7 @@ const fetch00981A = async (): Promise<ParsedHoldings> => {
     ],
     debug: {
       attempts,
+      requestDateLabel: minguoDate,
       recommendation:
         "The official endpoint may require its same-URL 307 cookie challenge to succeed from the runtime. If all variants fail on Vercel, keep 00981A on CSV fallback or evaluate an alternate serverless runtime.",
     },

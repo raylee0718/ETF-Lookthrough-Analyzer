@@ -293,6 +293,61 @@ const hasOnlyAllowedProxyWarnings = (result: EtfHoldingsProxyResponse) => {
   return result.warnings.every(isAllowed00646NonStockWarning);
 };
 
+const compareOptionalAsOfDates = (first?: string, second?: string) => {
+  const firstDate = first?.trim();
+  const secondDate = second?.trim();
+
+  if (!firstDate && !secondDate) return 0;
+  if (!firstDate) return -1;
+  if (!secondDate) return 1;
+
+  return firstDate.localeCompare(secondDate);
+};
+
+const getProxyWarningSummary = (result: EtfHoldingsProxyResponse) => {
+  if (result.warnings.length === 0) {
+    return "無 warnings";
+  }
+
+  if (result.symbol === "00646" && result.warnings.every(isAllowed00646NonStockWarning)) {
+    return "已排除期貨 / 現金 / 保證金等非股票項目，不影響股票穿透分析。";
+  }
+
+  if (result.symbol === "00981A") {
+    return "官方 PCF 含部分非持股或無效列，已略過，不影響有效成分股儲存。";
+  }
+
+  return `${result.warnings.length} 則 warning，請展開技術細節查看。`;
+};
+
+const getUpdateNeedLabel = (localAsOfDate?: string, fetchedAsOfDate?: string) => {
+  const comparison = compareOptionalAsOfDates(fetchedAsOfDate, localAsOfDate);
+
+  if (!fetchedAsOfDate) {
+    return "尚未確認";
+  }
+
+  if (!localAsOfDate) {
+    return "可更新";
+  }
+
+  if (comparison > 0) {
+    return "有新資料可儲存";
+  }
+
+  if (comparison === 0) {
+    return "目前官方回傳日期與本地資料相同";
+  }
+
+  return "官方回傳日期早於本地資料，建議不要覆蓋";
+};
+
+const getProxyResultTechnicalSummary = (result: EtfHoldingsProxyResponse) => ({
+  requestDateLabel: result.debug?.requestDateLabel,
+  requestVariant: result.debug?.requestVariant,
+  officialAsOfDate: result.debug?.officialAsOfDate ?? result.asOfDate,
+});
+
 const isProxyResultSafeToSave = (result: EtfHoldingsProxyResponse) =>
   (result.status === "ok" || result.status === "partial") &&
   result.errors.length === 0 &&
@@ -578,6 +633,70 @@ export default function EtfConstituentsPage({
   const latestDataStatuses = useMemo(
     () => getLatestConstituentDataStatuses(constituents),
     [constituents],
+  );
+  const latestDataStatusBySymbol = useMemo(
+    () =>
+      new Map(
+        latestDataStatuses.map((status) => [
+          status.etfSymbol.trim().toUpperCase(),
+          status,
+        ]),
+      ),
+    [latestDataStatuses],
+  );
+  const getLatestProxyResult = (symbol: string) => {
+    const supportedSymbol = priorityProxyEtfBySymbol.get(symbol)?.symbol;
+
+    if (!supportedSymbol) {
+      return undefined;
+    }
+
+    return proxyUpdateResults[supportedSymbol] ?? batchProxyResults[supportedSymbol];
+  };
+  const autoMvpStatusRows = useMemo(
+    () =>
+      heldEtfSuggestions.map((suggestion) => {
+        const symbol = suggestion.symbol.trim().toUpperCase();
+        const supportedEtf = priorityProxyEtfBySymbol.get(symbol);
+        const latestProxyResult = getLatestProxyResult(symbol);
+        const localStatus = latestDataStatusBySymbol.get(symbol);
+        const localAsOfDate = localStatus?.latestAsOfDate;
+        const officialAsOfDate = latestProxyResult?.asOfDate;
+        const supportStatus = supportedEtf
+          ? "已支援"
+          : lowPriorityProxySymbols.has(symbol)
+            ? "低優先"
+            : "尚未支援";
+        const marketLabel =
+          supportedEtf?.marketScope === "US" || symbol === "00646"
+            ? "美股成分"
+            : supportedEtf
+              ? "台股成分"
+              : "未分類";
+        const updateNeed = supportedEtf
+          ? getUpdateNeedLabel(localAsOfDate, officialAsOfDate)
+          : supportStatus === "低優先"
+            ? "低優先"
+            : "未支援";
+
+        return {
+          symbol,
+          name: suggestion.name,
+          supportStatus,
+          localAsOfDate,
+          officialAsOfDate,
+          fetchedAt: latestProxyResult?.fetchedAt,
+          updateNeed,
+          marketLabel,
+          latestProxyResult,
+        };
+      }),
+    [
+      batchProxyResults,
+      heldEtfSuggestions,
+      latestDataStatusBySymbol,
+      proxyUpdateResults,
+    ],
   );
   const providerCapabilityNotes = useMemo(
     () => getEtfProviderCapabilityNotes(),
@@ -1157,6 +1276,13 @@ export default function EtfConstituentsPage({
     const isLoading = loadingProxySymbol === etf.symbol;
     const isSafeToSave = result ? isProxyResultSafeToSave(result) : false;
     const weightTotal = result ? getProxyResultWeightTotal(result) : 0;
+    const localAsOfDate = latestDataStatusBySymbol.get(etf.symbol)?.latestAsOfDate;
+    const updateNeed = result
+      ? getUpdateNeedLabel(localAsOfDate, result.asOfDate)
+      : "尚未確認";
+    const technicalSummary = result
+      ? getProxyResultTechnicalSummary(result)
+      : undefined;
 
     return (
       <article
@@ -1212,21 +1338,29 @@ export default function EtfConstituentsPage({
             <div className="grid gap-3 rounded-lg border border-stone-200 bg-white p-3 sm:grid-cols-2">
               <p>
                 <span className="text-slate-500">ETF 代號：</span>
-                <span className="font-semibold text-slate-950">
-                  {result.symbol}
-                </span>
+                <span className="font-semibold text-slate-950">{result.symbol}</span>
               </p>
               <p>
                 <span className="text-slate-500">狀態：</span>
+                <span className="font-semibold text-slate-950">{result.status}</span>
+              </p>
+              <p>
+                <span className="text-slate-500">本地資料日期：</span>
+                <span className="font-semibold text-slate-950">{localAsOfDate ?? "-"}</span>
+              </p>
+              <p>
+                <span className="text-slate-500">官方資料日期：</span>
+                <span className="font-semibold text-slate-950">{result.asOfDate ?? "-"}</span>
+              </p>
+              <p>
+                <span className="text-slate-500">本次抓取時間：</span>
                 <span className="font-semibold text-slate-950">
-                  {result.status}
+                  {formatDiagnosticTime(result.fetchedAt)}
                 </span>
               </p>
               <p>
-                <span className="text-slate-500">資料日期：</span>
-                <span className="font-semibold text-slate-950">
-                  {result.asOfDate ?? "-"}
-                </span>
+                <span className="text-slate-500">是否需要更新：</span>
+                <span className="font-semibold text-slate-950">{updateNeed}</span>
               </p>
               <p>
                 <span className="text-slate-500">成分股筆數：</span>
@@ -1241,80 +1375,73 @@ export default function EtfConstituentsPage({
                 </span>
               </p>
               <p>
-                <span className="text-slate-500">來源：</span>
+                <span className="text-slate-500">是否可儲存：</span>
                 <span className="font-semibold text-slate-950">
-                  {result.source}
+                  {isSafeToSave ? "可儲存" : "不可儲存"}
                 </span>
               </p>
               <p>
-                <span className="text-slate-500">官方資料日期：</span>
+                <span className="text-slate-500">warnings：</span>
                 <span className="font-semibold text-slate-950">
-                  {result.asOfDate ?? "-"}
-                </span>
-              </p>
-              <p>
-                <span className="text-slate-500">本次抓取時間：</span>
-                <span className="font-semibold text-slate-950">
-                  {formatDiagnosticTime(result.fetchedAt)}
-                </span>
-              </p>
-              <p>
-                <span className="text-slate-500">是否強制重新抓取：</span>
-                <span className="font-semibold text-slate-950">
-                  {result.refreshRequested ? "是" : "否"}
-                </span>
-              </p>
-              <p>
-                <span className="text-slate-500">快取設定：</span>
-                <span className="font-semibold text-slate-950">
-                  {result.cacheControl ?? "-"}
+                  {getProxyWarningSummary(result)}
                 </span>
               </p>
             </div>
 
-            <p className="rounded-lg border border-stone-200 bg-white p-3 text-slate-600">
-              資料來源：{result.source}
-              {result.sourceUrl ? ` / ${result.sourceUrl}` : ""}
-              {result.cacheNote ? `。${result.cacheNote}` : ""}
-            </p>
-
-            {result.status === "partial" ? (
-              <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
-                此來源回傳 partial，請確認 warnings 後再儲存。
+            {result.symbol === "00981A" ? (
+              <p className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-blue-950">
+                00981A 官方 PCF 日期可能落後於今天。請以官方回傳的 asOfDate 為準；若 fetchedAt 是今天但 asOfDate 較早，代表系統今天有抓取，但官方 PCF 目前回傳的是較早日期。
               </p>
             ) : null}
 
-            {result.warnings.length > 0 ? (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 leading-6 text-amber-900">
-                <p className="font-semibold">Warnings</p>
-                <div className="mt-2 grid gap-1">
-                  {result.warnings.map((warning) => (
-                    <p key={warning}>- {warning}</p>
-                  ))}
-                </div>
-              </div>
+            {result.status === "partial" ? (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
+                {"此來源回傳 partial，請確認摘要後再儲存。"}
+              </p>
             ) : null}
 
-            {result.errors.length > 0 ? (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-3 leading-6 text-red-800">
-                <p className="font-semibold">Errors</p>
-                <div className="mt-2 grid gap-1">
-                  {result.errors.map((error) => (
-                    <p key={error}>- {error}</p>
-                  ))}
-                </div>
+            <details className="rounded-lg border border-stone-200 bg-white p-3 leading-6 text-slate-700">
+              <summary className="cursor-pointer font-semibold text-slate-950">
+                {"技術細節"}
+              </summary>
+              <div className="mt-3 grid gap-3">
+                <p>{"資料來源："}{result.source}</p>
+                <p>sourceUrl: {result.sourceUrl}</p>
+                <p>cacheControl: {result.cacheControl ?? "-"}</p>
+                <p>cacheNote: {result.cacheNote ?? "-"}</p>
+                <p>refreshRequested: {result.refreshRequested ? "true" : "false"}</p>
+                {technicalSummary?.requestDateLabel ? (
+                  <p>request date: {technicalSummary.requestDateLabel}</p>
+                ) : null}
+                {technicalSummary?.requestVariant ? (
+                  <p>request variant: {technicalSummary.requestVariant}</p>
+                ) : null}
+                {technicalSummary?.officialAsOfDate ? (
+                  <p>official asOfDate: {technicalSummary.officialAsOfDate}</p>
+                ) : null}
+                {result.warnings.length > 0 ? (
+                  <div>
+                    <p className="font-semibold text-amber-900">Warnings</p>
+                    {result.warnings.map((warning) => (
+                      <p key={warning}>- {warning}</p>
+                    ))}
+                  </div>
+                ) : null}
+                {result.errors.length > 0 ? (
+                  <div className="text-red-800">
+                    <p className="font-semibold">Errors</p>
+                    {result.errors.map((error) => (
+                      <p key={error}>- {error}</p>
+                    ))}
+                  </div>
+                ) : null}
                 {result.debug ? (
-                  <details className="mt-2">
-                    <summary className="cursor-pointer font-medium">
-                      Debug
-                    </summary>
-                    <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-white p-3 text-xs text-slate-700">
-                      {JSON.stringify(result.debug, null, 2)}
-                    </pre>
-                  </details>
+                  <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-stone-50 p-3 text-xs text-slate-700">
+                    {JSON.stringify(result.debug, null, 2)}
+                  </pre>
                 ) : null}
               </div>
-            ) : null}
+            </details>
 
             {result.constituents.length > 10 ? (
               <p className="rounded-lg border border-stone-200 bg-white p-3 text-slate-600">
@@ -1416,6 +1543,65 @@ export default function EtfConstituentsPage({
             此工具保留每檔 ETF 目前儲存的成分股資料；重新匯入同一檔 ETF 會取代該 ETF 的現有清單。穿透分析預設使用每檔 ETF 最新資料日期的成分股。
           </p>
         </section>
+
+        <SectionCard
+          title="Auto MVP 狀態"
+          description="按下更新時才會抓官方資料；目前不會背景自動更新。官方資料日期不一定等於今天，儲存後才會覆蓋本機 ETF 成分股資料。"
+        >
+          {autoMvpStatusRows.length === 0 ? (
+            <p className="rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm leading-6 text-slate-600">
+              目前沒有 ETF 持股。請先到「設定我的持股」新增 ETF，或使用下方手動匯入。
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[980px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-stone-200 text-slate-500">
+                    <th className="pb-3 font-medium">ETF 代號</th>
+                    <th className="pb-3 font-medium">ETF 名稱</th>
+                    <th className="pb-3 font-medium">自動更新狀態</th>
+                    <th className="pb-3 font-medium">本地資料日期</th>
+                    <th className="pb-3 font-medium">官方回傳日期</th>
+                    <th className="pb-3 font-medium">本次抓取時間</th>
+                    <th className="pb-3 font-medium">是否需要更新</th>
+                    <th className="pb-3 font-medium">成分市場</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {autoMvpStatusRows.map((row) => (
+                    <tr
+                      className="border-b border-stone-100 last:border-0"
+                      key={`auto-status-${row.symbol}`}
+                    >
+                      <td className="py-3 font-semibold text-slate-950">
+                        {row.symbol}
+                      </td>
+                      <td className="py-3 text-slate-700">{row.name}</td>
+                      <td className="py-3 text-slate-700">
+                        {row.supportStatus}
+                      </td>
+                      <td className="py-3 text-slate-600">
+                        {row.localAsOfDate ?? "-"}
+                      </td>
+                      <td className="py-3 text-slate-600">
+                        {row.officialAsOfDate ?? "-"}
+                      </td>
+                      <td className="py-3 text-slate-600">
+                        {row.fetchedAt ? formatDiagnosticTime(row.fetchedAt) : "-"}
+                      </td>
+                      <td className="py-3 text-slate-700">
+                        {row.updateNeed}
+                      </td>
+                      <td className="py-3 text-slate-700">
+                        {row.marketLabel}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </SectionCard>
 
         <SectionCard
           title="一鍵更新目前持有 ETF"

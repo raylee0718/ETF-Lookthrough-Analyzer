@@ -24,6 +24,9 @@ export type EtfHoldingsProxyDebugAttempt = {
 export type EtfHoldingsProxyDebug = {
   attempts: EtfHoldingsProxyDebugAttempt[];
   recommendation?: string;
+  requestDateLabel?: string;
+  requestVariant?: string;
+  officialAsOfDate?: string;
 };
 
 export type EtfHoldingsProxyResponse = {
