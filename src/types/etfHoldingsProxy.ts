@@ -1,6 +1,6 @@
 import type { EtfConstituent } from "./portfolio";
 
-export type EtfHoldingsProxySymbol = "0050" | "00981A" | "00994A";
+export type EtfHoldingsProxySymbol = "0050" | "00646" | "00981A" | "00994A";
 
 export type EtfHoldingsProxyStatus = "ok" | "partial" | "failed";
 

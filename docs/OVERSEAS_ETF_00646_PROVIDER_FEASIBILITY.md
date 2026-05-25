@@ -185,6 +185,30 @@ Futures / cash handling：
 - 沒有自動寫入 localStorage
 - CSV / 貼上表格仍是目前可用 fallback
 
+## 00646 Serverless Proxy
+
+Step 46 已將 00646 加入既有 Vercel API whitelist：
+
+`/api/etf-holdings?symbol=00646`
+
+Proxy 行為：
+
+- 只 fetch 元大官方 PCF/Daily JSON，不接受任意 URL
+- 只解析 `FundWeights.StockWeights[]`
+- 回傳 normalized constituents
+- `underlyingMarket` 固定為 `US`
+- 排除 `FutureWeights`、`CashPosition`、`Margin`
+- warnings 會提示 futures / cash / margin 等非股票列已被忽略
+
+Local serverless handler smoke test on `2026-05-25` returned HTTP `200`, response `status: "partial"`, `503` constituents, `asOfDate: "2026-05-22"`, all constituents marked `underlyingMarket: "US"`, and no errors. The only warning was ignored non-stock rows: futures `1`, cash `5`, margin `2`.
+
+Step 46 仍未接 UI：
+
+- 沒有新增 00646 單檔更新按鈕
+- 沒有加入一鍵 batch update
+- 沒有自動儲存到 localStorage
+- CSV / 貼上表格仍保留為 fallback
+
 ## Serverless proxy 評估
 
 00646 官方 JSON 回傳 `Access-Control-Allow-Origin: *`，因此瀏覽器端直抓可能可行；但仍需在 production browser 實測。

@@ -93,6 +93,7 @@ ETF Lookthrough Analyzer 是 local-first 的個人投資工具，用來分析自
 - Step 43: Auto MVP one-click update for currently held supported ETFs：已完成。Batch update 只包含持有中的 `0050` / `00981A`，先預覽再確認儲存。
 - Step 44: official 00646 holdings source feasibility investigation：已完成。官方 Yuanta PCF/Daily JSON 可提供 503 筆股票列與直接權重，決策為 `ready_for_parser_poc`，但尚未實作 00646 provider。
 - Step 45: 00646 official holdings parser proof-of-concept：已完成。`parseYuanta00646HoldingsResponse` 只解析 `FundWeights.StockWeights[]`，固定 `underlyingMarket: "US"`，尚未接入自動更新 UI。
+- Step 46: 00646 ETF holdings serverless proxy support：已完成。`/api/etf-holdings?symbol=00646` 已加入 whitelist 並回傳 normalized US constituents；UI 更新按鈕與 batch update 尚未啟用。
 
 Step 11 特別說明：
 
@@ -215,6 +216,8 @@ Step 43 起，「ETF 成分股」頁提供 Auto MVP batch update：依目前 `Ho
 Step 44 確認 00646 的官方 Yuanta ETFAPI bridge PCF/Daily JSON 可作為未來 parser POC 來源：`FundWeights.StockWeights` 有 503 筆股票列、Bloomberg-like ticker、名稱、股數與直接 `weights` 權重；`PCF.trandate` 可作為資料日期。JSON 同時含 `FutureWeights` 與 `Cash` 區塊，未來 parser POC 應先只轉換股票列並固定 `underlyingMarket: "US"`，不要把期貨 / 現金塞成股票成分股。詳細記錄在 `docs/OVERSEAS_ETF_00646_PROVIDER_FEASIBILITY.md`。
 
 Step 45 起，00646 parser POC 已存在於 `taiwanEtfProviders.ts`。`parseYuanta00646HoldingsResponse` 解析官方 JSON 的 `FundWeights.StockWeights[]`，清理 `NVDA UQ` / `JPM UN` / `BRK/B UN` 類 ticker，跳過無效權重列，並回傳 `ignoredNonStockRows` 以確認 `FutureWeights`、`CashPosition`、`Margin` 未被轉成股票成分股。Sample fixture 與 smoke utility 位於 `src/data/sample00646HoldingsResponse.ts`。00646 仍未加入單檔更新按鈕或 batch update。
+
+Step 46 起，serverless API route 支援 `/api/etf-holdings?symbol=00646`。API route 仍維持 self-contained parser logic，不匯入大型 frontend provider module；00646 fetch 使用元大官方 PCF/Daily JSON，輸出 `underlyingMarket: "US"`，並排除期貨 / 現金 / 保證金。這只是 API support，`EtfConstituentsPage` 的一鍵更新與單檔更新仍只聚焦 `0050` / `00981A`。
 
 ETF overlap:
 

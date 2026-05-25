@@ -228,12 +228,20 @@ Step 26 後，主要導覽聚焦在原始 MVP 流程：
 
 ## Serverless Proxy 評估
 
-Step 33 新增 Vercel serverless function：`/api/etf-holdings?symbol=0050`、`/api/etf-holdings?symbol=00981A`、`/api/etf-holdings?symbol=00994A`。這個 proxy 的目的只是讓 Vercel server-side 去讀官方 issuer endpoint，避免瀏覽器 CORS 阻擋；API 只接受白名單 ETF symbol，不接受任意 URL。
+Step 33 新增 Vercel serverless function；Step 46 將 00646 加入同一個 proxy whitelist。支援 endpoint：
+
+- `/api/etf-holdings?symbol=0050`
+- `/api/etf-holdings?symbol=00646`
+- `/api/etf-holdings?symbol=00981A`
+- `/api/etf-holdings?symbol=00994A`
+
+這個 proxy 的目的只是讓 Vercel server-side 去讀官方 issuer endpoint，避免瀏覽器 CORS 阻擋並統一 response shape；API 只接受白名單 ETF symbol，不接受任意 URL。
 
 Proxy 目前會回傳 normalized constituents，response 包含 `symbol`、`status`、`source`、`sourceUrl`、`fetchedAt`、`asOfDate`、`constituents`、`warnings`、`errors`。已加入短期 cache header：`s-maxage=1800, stale-while-revalidate=1800`。
 
 支援狀態：
 - `0050`：元大官方 PCF/Daily JSON，使用既有 `parseYuanta0050PcfResponse`。
+- `00646`：元大官方 PCF/Daily JSON，解析 `FundWeights.StockWeights[]` 為美股成分，排除期貨 / 現金 / 保證金；API endpoint 已存在，但 UI 更新按鈕尚未啟用。
 - `00981A`：統一投信官方 `POST https://www.ezmoney.com.tw/ETF/Transaction/GetPCF`，使用既有 `parseUniPresident00981APcfResponse`。本機 Node fetch 對此 endpoint 曾出現 network-level failure；proxy 會以清楚的 `failed` response 回報。
 - `00994A`：第一金投信官方 `POST https://www.fsitc.com.tw/WebAPI.aspx/Get_hd`，body 為 `{"pStrFundID":"182","pStrDate":""}`，使用既有 `parseFirst00994AGetHdResponse`。
 
@@ -250,7 +258,7 @@ Proxy 不做的事：
 Local-first note：使用者 portfolio、交易、價格與 ETF constituents 仍保存在 browser localStorage。呼叫 proxy 時，離開瀏覽器的只有 ETF symbol request，例如 `symbol=00994A`。
 
 Local / Vercel 測試：
-- deployed：開啟 `/api/etf-holdings?symbol=00994A` 或 `/api/etf-holdings?symbol=0050`。
+- deployed：開啟 `/api/etf-holdings?symbol=00646`、`/api/etf-holdings?symbol=0050` 或 `/api/etf-holdings?symbol=00981A`。
 - local：若有 Vercel CLI，可用 `vercel dev` 後測 `/api/etf-holdings?symbol=00994A`；一般 `npm run dev` 只啟動 Vite frontend，不會執行 Vercel function。
 - Step 34 deployed API testing notes：`docs/VERCEL_API_TESTING.md`。
 
@@ -350,6 +358,8 @@ Step 45 已建立 00646 parser proof-of-concept：
 - `FutureWeights`、`CashPosition`、`Margin` 會被忽略，不會塞進股票成分股。
 - fixture / smoke utility 位於 `src/data/sample00646HoldingsResponse.ts`。
 - 00646 自動更新 UI 尚未啟用，仍不列入 one-click batch update。
+
+Step 46 已將 00646 加入 `/api/etf-holdings?symbol=00646` serverless proxy。API 會回傳 normalized US constituents，並排除 futures / cash / margin；但 00646 仍未加入任何 ETF 成分股更新按鈕或 batch update。
 
 ## 小額成分彙總
 

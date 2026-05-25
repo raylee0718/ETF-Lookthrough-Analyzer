@@ -1,4 +1,4 @@
-type EtfHoldingsProxySymbol = "0050" | "00981A" | "00994A";
+type EtfHoldingsProxySymbol = "0050" | "00646" | "00981A" | "00994A";
 
 type EtfConstituent = {
   id: string;
@@ -7,6 +7,7 @@ type EtfConstituent = {
   stockName: string;
   weightPercent: number;
   industry?: string;
+  underlyingMarket?: "TW" | "US" | "OTHER" | "UNKNOWN";
   asOfDate?: string;
   source?: string;
 };
@@ -95,22 +96,36 @@ type YuantaPcfStockWeight = {
   code?: unknown;
   stkcd?: unknown;
   name?: unknown;
+  ename?: unknown;
   weights?: unknown;
   weight?: unknown;
+};
+
+type YuantaPcfCash = {
+  CashPosition?: unknown;
+  Margin?: unknown;
 };
 
 type YuantaPcfResponse = {
   Data?: unknown;
   PCF?: {
     trandate?: unknown;
+    anndate?: unknown;
+    upddate?: unknown;
   };
   FundWeights?: {
     StockWeights?: YuantaPcfStockWeight[];
+    FutureWeights?: unknown;
+    ETFWeights?: unknown;
+    BondWeights?: unknown;
   };
+  Cash?: YuantaPcfCash;
 };
 
 const YUANTA_0050_PCF_DAILY_URL =
   "https://etfapi.yuantaetfs.com/ectranslation/api/bridge?APIType=ETFAPI&CompanyName=YUANTAFUNDS&PageName=%2FtradeInfo%2Fpcf%2F0050&DeviceId=null&FuncId=PCF%2FDaily&AppName=ETF&Device=3&Platform=ETF&ticker=0050&ndate=";
+const YUANTA_00646_PCF_DAILY_URL =
+  "https://etfapi.yuantaetfs.com/ectranslation/api/bridge?APIType=ETFAPI&CompanyName=YUANTAFUNDS&PageName=%2FtradeInfo%2Fpcf%2F00646&DeviceId=null&FuncId=PCF%2FDaily&AppName=ETF&Device=3&Platform=ETF&ticker=00646&ndate=";
 const UPAMC_00981A_GET_PCF_URL =
   "https://www.ezmoney.com.tw/ETF/Transaction/GetPCF";
 const FSITC_00994A_GET_HD_URL =
@@ -118,18 +133,21 @@ const FSITC_00994A_GET_HD_URL =
 
 const SUPPORTED_SYMBOLS = new Set<EtfHoldingsProxySymbol>([
   "0050",
+  "00646",
   "00981A",
   "00994A",
 ]);
 
 const SOURCE_LABELS: Record<EtfHoldingsProxySymbol, string> = {
   "0050": "Yuanta 0050 official PCF/Daily JSON",
+  "00646": "Yuanta 00646 official PCF/Daily JSON",
   "00981A": "Uni-President 00981A official PCF",
   "00994A": "FSITC 00994A official holdings",
 };
 
 const SOURCE_URLS: Record<EtfHoldingsProxySymbol, string> = {
   "0050": YUANTA_0050_PCF_DAILY_URL,
+  "00646": YUANTA_00646_PCF_DAILY_URL,
   "00981A": UPAMC_00981A_GET_PCF_URL,
   "00994A": FSITC_00994A_GET_HD_URL,
 };
@@ -205,6 +223,36 @@ const parseWeight = (value: unknown) => {
 
   return Number.isFinite(weight) && weight > 0 ? weight : undefined;
 };
+
+const parseNonNegativeWeight = (value: unknown) => {
+  const weight = Number(
+    String(value ?? "")
+      .replace("%", "")
+      .replace(/,/g, "")
+      .trim(),
+  );
+
+  return Number.isFinite(weight) && weight >= 0 ? weight : undefined;
+};
+
+const normalizeImported00646StockSymbol = (value: string) => {
+  let symbol = value.trim().toUpperCase().replace(/\s+/g, " ");
+
+  if (!symbol) {
+    return symbol;
+  }
+
+  symbol = symbol.replace(/^([A-Z0-9./-]+)\s+(UQ|UN|UF)$/u, "$1");
+
+  if (/^[A-Z]{1,5}\/[A-Z]{1,2}$/.test(symbol)) {
+    symbol = symbol.replace("/", ".");
+  }
+
+  return symbol;
+};
+
+const hasSuspiciousImportedTicker = (symbol: string) =>
+  /\s/.test(symbol) || /[^A-Z0-9.-]/.test(symbol);
 
 const parseJson = (raw: unknown) => {
   if (typeof raw !== "string") {
@@ -427,6 +475,98 @@ const parseYuanta0050PcfResponse = (raw: string): ParsedHoldings => {
   };
 };
 
+const countArrayRows = (value: unknown) => (Array.isArray(value) ? value.length : 0);
+
+const getYuanta00646AsOfDate = (data: YuantaPcfResponse) =>
+  [data.PCF?.trandate, data.PCF?.anndate, data.PCF?.upddate]
+    .map(normalizeDateString)
+    .find(Boolean);
+
+const parseYuanta00646PcfResponse = (raw: string): ParsedHoldings => {
+  const warnings: string[] = [];
+  const errors: string[] = [];
+  let parsedJson: YuantaPcfResponse;
+
+  try {
+    parsedJson = JSON.parse(raw) as YuantaPcfResponse;
+  } catch {
+    return {
+      constituents: [],
+      warnings,
+      errors: ["Yuanta 00646 PCF/Daily response was not valid JSON."],
+    };
+  }
+
+  const data = (parsedJson.Data ?? parsedJson) as YuantaPcfResponse;
+  const asOfDate = getYuanta00646AsOfDate(data);
+  const stockWeights = Array.isArray(data.FundWeights?.StockWeights)
+    ? data.FundWeights.StockWeights
+    : [];
+  const ignoredNonStockRows = {
+    futures: countArrayRows(data.FundWeights?.FutureWeights),
+    cash: countArrayRows(data.Cash?.CashPosition),
+    margin: countArrayRows(data.Cash?.Margin),
+  };
+
+  if (!asOfDate) {
+    warnings.push("Could not determine 00646 asOfDate from PCF/Daily JSON.");
+  }
+
+  if (stockWeights.length === 0) {
+    errors.push("Yuanta 00646 PCF/Daily JSON did not contain FundWeights.StockWeights.");
+  }
+
+  if (
+    ignoredNonStockRows.futures > 0 ||
+    ignoredNonStockRows.cash > 0 ||
+    ignoredNonStockRows.margin > 0
+  ) {
+    warnings.push(
+      `Ignored non-stock 00646 rows: futures ${ignoredNonStockRows.futures}, cash ${ignoredNonStockRows.cash}, margin ${ignoredNonStockRows.margin}.`,
+    );
+  }
+
+  const constituents = stockWeights.flatMap((row, index): EtfConstituent[] => {
+    const rawSymbol = String(row.code ?? row.stkcd ?? "");
+    const stockSymbol = normalizeImported00646StockSymbol(rawSymbol);
+    const stockName = String(row.name ?? row.ename ?? "").trim();
+    const weightPercent = parseNonNegativeWeight(row.weights ?? row.weight);
+
+    if (!stockSymbol || !stockName || weightPercent === undefined) {
+      warnings.push(`Skipped invalid 00646 PCF stock row ${index + 1}.`);
+      return [];
+    }
+
+    if (hasSuspiciousImportedTicker(stockSymbol)) {
+      warnings.push(`00646 ticker may still need review: ${stockSymbol}.`);
+    }
+
+    return [
+      {
+        id: `provider-proxy-00646-${stockSymbol}-${index}`,
+        etfSymbol: "00646",
+        stockSymbol,
+        stockName,
+        weightPercent,
+        underlyingMarket: "US",
+        asOfDate,
+        source: SOURCE_LABELS["00646"],
+      },
+    ];
+  });
+
+  if (stockWeights.length > 0 && constituents.length === 0) {
+    errors.push("Yuanta 00646 PCF/Daily JSON had stock rows but no valid weights.");
+  }
+
+  return {
+    asOfDate,
+    constituents,
+    warnings,
+    errors,
+  };
+};
+
 const parseUniPresident00981APcfResponse = (raw: string): ParsedHoldings => {
   const warnings: string[] = [];
   const errors: string[] = [];
@@ -615,6 +755,16 @@ const fetch0050 = async () => {
   return parseYuanta0050PcfResponse(raw);
 };
 
+const fetch00646 = async () => {
+  const raw = await fetchText(YUANTA_00646_PCF_DAILY_URL, {
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  return parseYuanta00646PcfResponse(raw);
+};
+
 const fetch00981A = async (): Promise<ParsedHoldings> => {
   const attempts: EtfHoldingsProxyDebugAttempt[] = [];
   const minguoDate = getMinguoDate();
@@ -736,6 +886,10 @@ const fetchBySymbol = (symbol: EtfHoldingsProxySymbol) => {
     return fetch0050();
   }
 
+  if (symbol === "00646") {
+    return fetch00646();
+  }
+
   if (symbol === "00981A") {
     return fetch00981A();
   }
@@ -761,7 +915,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!symbol || !SUPPORTED_SYMBOLS.has(symbol as EtfHoldingsProxySymbol)) {
     res.status(400).json({
       status: "failed",
-      errors: ["Unsupported ETF symbol. Supported symbols: 0050, 00981A, 00994A."],
+      errors: ["Unsupported ETF symbol. Supported symbols: 0050, 00646, 00981A, 00994A."],
     });
     return;
   }
@@ -786,7 +940,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         errors: [
           `${SOURCE_LABELS[typedSymbol]} fetch failed. ${message}`,
           typedSymbol === "00981A"
-            ? "00981A may be blocked by issuer network policy from the serverless runtime; this should not block 0050 or 00994A."
+            ? "00981A may be blocked by issuer network policy from the serverless runtime; this should not block 0050, 00646, or 00994A."
             : "",
         ].filter(Boolean),
         debug:

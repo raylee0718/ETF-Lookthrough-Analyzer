@@ -9,6 +9,7 @@ Production base URL:
 Test these routes after each proxy deployment:
 
 - `https://etf-lookthrough-analyzer.vercel.app/api/etf-holdings?symbol=0050`
+- `https://etf-lookthrough-analyzer.vercel.app/api/etf-holdings?symbol=00646`
 - `https://etf-lookthrough-analyzer.vercel.app/api/etf-holdings?symbol=00981A`
 - `https://etf-lookthrough-analyzer.vercel.app/api/etf-holdings?symbol=00994A`
 - `https://etf-lookthrough-analyzer.vercel.app/api/etf-holdings?symbol=BAD`
@@ -47,6 +48,7 @@ Record these fields for each supported route:
 | Symbol | HTTP status | response `status` | constituent count | asOfDate | warnings | errors | Ready for UI integration |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `0050` | `200` | `ok` | `50` | `2026-05-22` | none | none | yes |
+| `00646` | local handler test `200`; deployed pending | `partial` | `503` | `2026-05-22` | ignored futures/cash/margin rows | none | API only; UI update button not enabled |
 | `00981A` | `502` | `failed` | `0` | none | none | `Uni-President 00981A official PCF fetch failed. fetch failed`; likely issuer/runtime network policy | no |
 | `00994A` | `200` | `partial` | `40` | `2026-05-22` | skipped 2 invalid official `Get_hd` rows | none | yes for diagnostic UI; keep warnings visible |
 
@@ -75,3 +77,31 @@ Latest Step 35 deployed test timestamp: `2026-05-22 17:33 Asia/Taipei`.
 | `0050` | `200` | `ok` | `50` | `2026-05-22` | none | none | yes |
 | `00981A` | `200` | `partial` | `48` | `2026-05-21` | skipped 5 invalid official PCF rows | none | yes for diagnostic UI; keep warnings visible |
 | `00994A` | `200` | `partial` | `40` | `2026-05-22` | skipped 2 invalid official `Get_hd` rows | none | low priority only |
+
+## Step 46 00646 Proxy Test
+
+Step 46 adds official 00646 support to the same whitelisted API route:
+
+`https://etf-lookthrough-analyzer.vercel.app/api/etf-holdings?symbol=00646`
+
+Expected deployed result after Vercel finishes deployment:
+
+- HTTP `200`
+- response `status`: `ok` or `partial`
+- `symbol`: `00646`
+- constituent count around `503`
+- every constituent should have `underlyingMarket: "US"`
+- `source`: Yuanta 00646 official PCF/Daily JSON
+- warnings may mention ignored futures / cash / margin rows
+- `errors` should be empty
+
+00646 is API-only in Step 46. Do not expect a 00646 update button in the UI yet, and do not include 00646 in one-click batch update until a later step.
+
+Local serverless handler smoke test on `2026-05-25 Asia/Taipei`:
+
+| Symbol | HTTP status | response `status` | constituent count | asOfDate | warnings | errors |
+| --- | --- | --- | --- | --- | --- | --- |
+| `00646` | `200` | `partial` | `503` | `2026-05-22` | ignored futures `1`, cash `5`, margin `2` | none |
+| `0050` | `200` | `ok` | `50` | `2026-05-25` | none | none |
+| `00981A` | `200` | `partial` | `48` | `2026-05-22` | skipped 5 invalid official PCF rows | none |
+| `00994A` | `200` | `partial` | `40` | `2026-05-22` | skipped 2 invalid official `Get_hd` rows | none |
