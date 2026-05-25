@@ -1608,6 +1608,9 @@ export default function EtfConstituentsPage({
           description="系統會根據你在「設定我的持股」輸入的 ETF，找出目前支援自動更新的標的，並透過官方資料來源更新成分股。更新前會先預覽，不會直接覆蓋資料。"
         >
           <div className="grid gap-4">
+            <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm leading-6 text-emerald-950">
+              日常使用時，先看 Auto MVP 狀態；若官方資料日期較新，再按一鍵更新並儲存。技術細節可展開查看。
+            </p>
             <div className="grid gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-950">
               {heldSupportedProxyEtfs.length > 0 ? (
                 <p>
@@ -1903,78 +1906,80 @@ export default function EtfConstituentsPage({
               </div>
             ) : null}
 
-            <div className="grid gap-3">
-              <div>
-                <h3 className="text-base font-semibold text-slate-950">
-                  單檔更新
-                </h3>
-                <p className="mt-1 text-sm leading-6 text-slate-600">
+            <details className="rounded-lg border border-stone-200 bg-stone-50 p-4">
+              <summary className="cursor-pointer text-base font-semibold text-slate-950">
+                單檔更新 / 進階測試
+              </summary>
+              <div className="mt-4 grid gap-3">
+                <p className="text-sm leading-6 text-slate-600">
                   批次更新失敗或需要單檔測試時，可在這裡分別更新目前持有的支援 ETF。
                 </p>
-              </div>
 
-              {heldEtfSuggestions.length === 0 ? (
-                <p className="rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm leading-6 text-slate-600">
-                  目前沒有 ETF 持股。請先到「設定我的持股」新增 ETF，或使用下方手動匯入。
-                </p>
-              ) : (
-                <div className="grid gap-4 md:grid-cols-2">
-                  {heldEtfSuggestions.map((suggestion) =>
-                    suggestion.supportStatus === "supported" &&
-                    suggestion.supportedEtf ? (
-                      renderProxyUpdateCard(suggestion.supportedEtf)
-                    ) : (
-                      <article
-                        className="rounded-lg border border-stone-200 bg-white p-4"
-                        key={suggestion.symbol}
-                      >
-                        <p className="text-xs font-medium text-slate-500">
-                          {suggestion.symbol}
-                        </p>
-                        <h3 className="mt-1 text-base font-semibold text-slate-950">
-                          {suggestion.name}
-                        </h3>
-                        <p className="mt-3 text-sm leading-6 text-slate-600">
-                          {suggestion.unsupportedMessage ??
-                            "目前不支援自動更新，請使用 CSV 匯入或先略過。"}
-                        </p>
-                      </article>
-                    ),
-                  )}
-                </div>
-              )}
-            </div>
+                {heldEtfSuggestions.length === 0 ? (
+                  <p className="rounded-lg border border-stone-200 bg-white p-3 text-sm leading-6 text-slate-600">
+                    目前沒有 ETF 持股。請先到「設定我的持股」新增 ETF，或使用下方手動匯入。
+                  </p>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {heldEtfSuggestions.map((suggestion) =>
+                      suggestion.supportStatus === "supported" &&
+                      suggestion.supportedEtf ? (
+                        renderProxyUpdateCard(suggestion.supportedEtf)
+                      ) : (
+                        <article
+                          className="rounded-lg border border-stone-200 bg-white p-4"
+                          key={suggestion.symbol}
+                        >
+                          <p className="text-xs font-medium text-slate-500">
+                            {suggestion.symbol}
+                          </p>
+                          <h3 className="mt-1 text-base font-semibold text-slate-950">
+                            {suggestion.name}
+                          </h3>
+                          <p className="mt-3 text-sm leading-6 text-slate-600">
+                            {suggestion.unsupportedMessage ??
+                              "目前不支援自動更新，請使用 CSV 匯入或先略過。"}
+                          </p>
+                        </article>
+                      ),
+                    )}
+                  </div>
+                )}
 
-            {secondaryProxyEtfs.length > 0 ? (
-              <div className="grid gap-3 rounded-lg border border-stone-200 bg-white p-4">
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-950">
-                    其他可測試的支援 ETF
-                  </h3>
-                  <p className="mt-1 text-sm leading-6 text-slate-600">
-                    下列 ETF 目前不在持股中，因此放在次要區域；需要時仍可手動測試與儲存。
+                {secondaryProxyEtfs.length > 0 ? (
+                  <div className="grid gap-3 rounded-lg border border-stone-200 bg-white p-4">
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-950">
+                        其他可測試的支援 ETF
+                      </h3>
+                      <p className="mt-1 text-sm leading-6 text-slate-600">
+                        下列 ETF 目前不在持股中，因此放在次要區域；需要時仍可手動測試與儲存。
+                      </p>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {secondaryProxyEtfs.map((etf) =>
+                        renderProxyUpdateCard(etf),
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="grid gap-2 rounded-lg border border-stone-200 bg-white p-3 text-sm leading-6 text-slate-600">
+                  <p>
+                    00646 已可透過官方元大 PCF/Daily JSON 更新股票成分；期貨 / 現金 / 保證金會排除在股票穿透成分之外，CSV / 手動匯入仍保留為 fallback。
+                  </p>
+                  <p>
+                    00994A 已非目前優先標的，保留為低優先度 / CSV fallback，不顯示為主要更新按鈕。
                   </p>
                 </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  {secondaryProxyEtfs.map((etf) => renderProxyUpdateCard(etf))}
-                </div>
+
+                {proxySaveMessage ? (
+                  <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-900">
+                    {proxySaveMessage}
+                  </p>
+                ) : null}
               </div>
-            ) : null}
-
-            <div className="grid gap-2 rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm leading-6 text-slate-600">
-              <p>
-                00646 已可透過官方元大 PCF/Daily JSON 更新股票成分；期貨 / 現金 / 保證金會排除在股票穿透成分之外，CSV / 手動匯入仍保留為 fallback。
-              </p>
-              <p>
-                00994A 已非目前優先標的，保留為低優先度 / CSV fallback，不顯示為主要更新按鈕。
-              </p>
-            </div>
-
-            {proxySaveMessage ? (
-              <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-900">
-                {proxySaveMessage}
-              </p>
-            ) : null}
+            </details>
           </div>
         </SectionCard>
 
@@ -2005,7 +2010,14 @@ export default function EtfConstituentsPage({
           />
         </section>
 
-        <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+        <details className="rounded-lg border border-stone-200 bg-stone-50 p-4">
+          <summary className="cursor-pointer text-base font-semibold text-slate-950">
+            進階 provider 診斷與設定
+          </summary>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            這些工具保留給來源診斷與 provider 設定，日常更新請優先使用上方 Auto MVP 流程。
+          </p>
+          <div className="mt-4 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
           <SectionCard
             title="ETF 持股自動來源"
             description="設定每檔 ETF 可能使用的官方來源；目前先做可行性測試與設定保存。"
@@ -2541,10 +2553,18 @@ export default function EtfConstituentsPage({
               )}
             </div>
           </SectionCard>
-        </div>
+          </div>
+        </details>
 
-        <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="flex flex-col gap-6">
+        <details className="rounded-lg border border-stone-200 bg-stone-50 p-4">
+          <summary className="cursor-pointer text-base font-semibold text-slate-950">
+            CSV / 手動匯入 fallback
+          </summary>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            若官方 proxy 暫時失敗，仍可展開這裡貼上表格或匯入 CSV，不會自動覆蓋資料。
+          </p>
+          <div className="mt-4 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+            <div className="flex flex-col gap-6">
             <SectionCard
               title="1. 匯入設定"
               description="設定 ETF 代號、資料日期與來源。"
@@ -2759,8 +2779,9 @@ export default function EtfConstituentsPage({
                 </button>
               </div>
             )}
-          </SectionCard>
-        </div>
+            </SectionCard>
+          </div>
+        </details>
 
         <SectionCard
           title="ETF 資料狀態"

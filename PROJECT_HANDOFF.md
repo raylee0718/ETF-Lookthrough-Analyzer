@@ -406,3 +406,7 @@ Step 48A 新增 ETF update freshness diagnostics。`/api/etf-holdings` 正常 re
 ## Step 49 - Auto MVP Status Summary
 
 Step 49 新增「Auto MVP 狀態」摘要卡，依目前持股列出 ETF 自動更新狀態、本地已儲存資料日期、最近一次 proxy preview 的官方回傳日期、本次抓取時間、是否需要更新與成分市場。`0050`、`00981A`、`00646` 顯示為已支援；`00994A` 維持低優先；其他 ETF 顯示尚未支援。單檔 preview 保留核心資訊在畫面上，sourceUrl、cacheControl、cacheNote、debug attempts、request variant 與完整 warnings/errors 改收在「技術細節」。00981A API debug 會回傳 `requestDateLabel`、成功 `requestVariant` 與 `officialAsOfDate`，UI 說明 `fetchedAt` 是系統抓取時間，而 `asOfDate` 是官方 PCF 實際日期，兩者可能不同。
+
+## Step 50 - Auto MVP Final QA And Decluttering
+
+Step 50 將「ETF 成分股」頁整理成每日使用流程：先看 Auto MVP 狀態，再按「更新目前持有且支援的 ETF」，預覽並儲存後到「穿透分析」查看台股 / 美股曝險。`0050`、`00981A`、`00646` 是目前主要支援標的；`00994A` 維持低優先。單檔更新、其他可測試 ETF、provider diagnostics、完整技術細節，以及 CSV / 手動匯入 fallback 都仍保留，但預設收進可展開區塊，避免干擾主要 Auto MVP 路徑。此步驟不新增 provider、不新增價格自動化、不新增背景排程，也不改變 lookthrough calculation。

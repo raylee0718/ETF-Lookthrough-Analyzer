@@ -411,3 +411,14 @@ Step 49 起，「ETF 成分股」頁新增 Auto MVP 狀態摘要：
 - 若官方回傳日期新於本地資料，顯示有新資料可儲存；若相同，顯示目前官方回傳日期與本地資料相同；若官方日期較舊，提醒不建議覆蓋。
 - `00981A` preview 會說明官方 PCF 日期可能落後於今天：`fetchedAt` 代表系統今天有抓取，`asOfDate` 才是官方 PCF 實際資料日期。
 - sourceUrl、cacheControl、cacheNote、debug attempts、request variant 與完整 warnings/errors 會收在「技術細節」中，降低主要畫面噪音。
+
+## Auto MVP 日常流程
+
+Step 50 起，「ETF 成分股」頁把日常 Auto MVP 流程放在最前面：
+
+1. 到「設定我的持股」維護目前 ETF / 股票持股。
+2. 到「ETF 成分股」查看 Auto MVP 狀態，並按「更新目前持有且支援的 ETF」。
+3. 預覽官方回傳日期、抓取時間、筆數、權重合計與 warnings，確認後儲存。
+4. 到「穿透分析」查看台股 / 美股成分曝險。
+
+目前支援的主要自動更新 ETF 是 `0050`、`00981A`、`00646`；`00994A` 維持低優先。單檔更新、provider diagnostics、技術細節與 CSV / 手動匯入 fallback 仍保留，但預設收在可展開區塊中，避免干擾每日使用。本專案仍不執行背景自動更新、排程、資料庫、登入或使用者資料上傳。
