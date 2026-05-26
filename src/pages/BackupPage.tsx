@@ -37,6 +37,15 @@ type BackupPageProps = {
 const timestampForFilename = () =>
   new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
 
+const formatBackupDate = (value: string | undefined) => {
+  if (!value) {
+    return "未提供";
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "未提供" : date.toLocaleString("zh-TW");
+};
+
 export default function BackupPage({
   holdings,
   constituents,
@@ -46,6 +55,7 @@ export default function BackupPage({
   const { settings } = useAppSettings();
   const [importPreview, setImportPreview] = useState<BackupPreview | null>(null);
   const [pendingBackup, setPendingBackup] = useState<BackupFile | null>(null);
+  const [backupJsonText, setBackupJsonText] = useState("");
   const [importError, setImportError] = useState("");
   const [importSuccess, setImportSuccess] = useState("");
 
@@ -88,6 +98,33 @@ export default function BackupPage({
     );
   };
 
+  const previewBackupValue = (value: unknown) => {
+    const result = validateBackupFile(value);
+
+    if (!result.backup || !result.preview) {
+      setImportPreview(null);
+      setPendingBackup(null);
+      setImportError(result.error ?? "備份檔格式不正確。");
+      return;
+    }
+
+    setPendingBackup(result.backup);
+    setImportPreview(result.preview);
+    setImportError("");
+    setImportSuccess("");
+  };
+
+  const previewBackupJson = (text: string) => {
+    try {
+      previewBackupValue(JSON.parse(text) as unknown);
+    } catch {
+      setImportPreview(null);
+      setPendingBackup(null);
+      setImportError("無法解析 JSON，請確認內容。");
+      setImportSuccess("");
+    }
+  };
+
   const handleJsonImport = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     setImportError("");
@@ -102,20 +139,9 @@ export default function BackupPage({
     const reader = new FileReader();
 
     reader.onload = () => {
-      try {
-        const parsedValue = JSON.parse(String(reader.result ?? "")) as unknown;
-        const result = validateBackupFile(parsedValue);
-
-        if (!result.backup || !result.preview) {
-          setImportError(result.error ?? "備份檔格式不正確。");
-          return;
-        }
-
-        setPendingBackup(result.backup);
-        setImportPreview(result.preview);
-      } catch {
-        setImportError("無法解析 JSON 檔案，請確認檔案內容。");
-      }
+      const text = String(reader.result ?? "");
+      setBackupJsonText(text);
+      previewBackupJson(text);
     };
 
     reader.readAsText(file, "utf-8");
@@ -128,7 +154,7 @@ export default function BackupPage({
     }
 
     const confirmed = window.confirm(
-      "確定要用此備份檔取代目前所有本機資料嗎？這會覆蓋持股、成分股、交易、價格與設定。",
+      "確認還原？目前資料會被此備份取代。",
     );
 
     if (!confirmed) {
@@ -136,7 +162,7 @@ export default function BackupPage({
     }
 
     restoreBackupToLocalStorage(pendingBackup);
-    setImportSuccess("備份已匯入。請重新整理頁面以載入匯入後的資料。");
+    setImportSuccess("資料已還原，請重新整理頁面。");
   };
 
   const csvExports = [
@@ -189,15 +215,15 @@ export default function BackupPage({
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <header className="py-3">
           <h1 className="mt-2 text-3xl font-semibold tracking-normal text-slate-950">
-            備份匯出
+            備份資料
           </h1>
           <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
-            匯出完整 JSON 備份，或將分析結果與資料表下載成 CSV。匯入備份前會先預覽，不會自動覆蓋資料。
+            資料只保存在此瀏覽器，建議定期備份。
           </p>
         </header>
 
         <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950 sm:p-5">
-          部署、換瀏覽器、換手機或清除瀏覽資料前，請先下載完整 JSON 備份。資料不會自動同步不同裝置。
+          還原資料會取代目前資料，確認前不會套用。
         </section>
 
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -225,8 +251,8 @@ export default function BackupPage({
 
         <div className="grid gap-6 lg:grid-cols-2">
           <SectionCard
-            title="JSON 完整備份"
-            description="包含所有本機資料與目前 App 設定。"
+            title="備份資料"
+            description="包含持股、交易、價格、ETF 成分股與使用設定。"
           >
             <div className="grid gap-4">
               <button
@@ -234,22 +260,18 @@ export default function BackupPage({
                 onClick={handleJsonExport}
                 type="button"
               >
-                下載完整 JSON 備份
+                下載備份
               </button>
-              <p className="text-sm leading-6 text-slate-500">
-                備份檔包含 `appName`, `version`, `exportedAt`,
-                手動持股、ETF 成分股、交易紀錄、價格資料與 App 設定。
-              </p>
             </div>
           </SectionCard>
 
           <SectionCard
-            title="JSON 備份匯入"
-            description="先選擇檔案並預覽筆數，確認後才會覆蓋目前資料。"
+            title="還原資料"
+            description="先預覽備份內容，確認後才會取代目前資料。"
           >
             <div className="grid gap-4">
               <label className="cursor-pointer rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-center text-sm font-medium text-slate-700 shadow-sm transition hover:bg-stone-50 sm:w-fit">
-                選擇 JSON 備份檔
+                選擇備份檔
                 <input
                   accept=".json,application/json"
                   className="hidden"
@@ -257,6 +279,39 @@ export default function BackupPage({
                   type="file"
                 />
               </label>
+
+              <label className="grid gap-2 text-sm font-medium text-slate-700">
+                貼上備份 JSON
+                <textarea
+                  className="min-h-32 rounded-lg border border-stone-300 bg-white px-3 py-2.5 font-mono text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  onChange={(event) => setBackupJsonText(event.target.value)}
+                  value={backupJsonText}
+                />
+              </label>
+
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button
+                  className="rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-slate-400"
+                  disabled={!backupJsonText.trim()}
+                  onClick={() => previewBackupJson(backupJsonText)}
+                  type="button"
+                >
+                  預覽備份
+                </button>
+                <button
+                  className="rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-stone-50"
+                  onClick={() => {
+                    setBackupJsonText("");
+                    setImportPreview(null);
+                    setPendingBackup(null);
+                    setImportError("");
+                    setImportSuccess("");
+                  }}
+                  type="button"
+                >
+                  清除
+                </button>
+              </div>
 
               {importError ? (
                 <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800">
@@ -266,23 +321,31 @@ export default function BackupPage({
 
               {importPreview ? (
                 <div className="rounded-lg border border-stone-200 bg-stone-50 p-4">
-                  <h3 className="font-semibold text-slate-950">匯入預覽</h3>
+                  <h3 className="font-semibold text-slate-950">還原預覽</h3>
                   <div className="mt-3 grid gap-2 text-sm text-slate-600">
+                    <p>
+                      備份時間：
+                      {formatBackupDate(importPreview.exportedAt)}
+                    </p>
                     <p>手動持股：{importPreview.manualHoldingsCount} 筆</p>
-                    <p>ETF 成分股：{importPreview.etfConstituentsCount} 筆</p>
+                    <p>ETF 成分股組數：{importPreview.etfConstituentSetCount} 組</p>
+                    <p>ETF 成分股明細：{importPreview.etfConstituentRecordCount} 筆</p>
                     <p>交易紀錄：{importPreview.transactionsCount} 筆</p>
                     <p>價格資料：{importPreview.priceRecordsCount} 筆</p>
                     <p>
-                      App 設定：
+                      使用設定：
                       {importPreview.hasAppSettings ? "包含" : "不包含"}
                     </p>
                   </div>
+                  <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+                    確認還原後，目前資料會被取代。
+                  </p>
                   <button
                     className="mt-4 rounded-lg bg-red-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-800"
                     onClick={handleRestoreBackup}
                     type="button"
                   >
-                    確認匯入並覆蓋目前資料
+                    確認還原
                   </button>
                 </div>
               ) : null}
@@ -305,7 +368,7 @@ export default function BackupPage({
 
         <SectionCard
           title="CSV 匯出"
-          description="CSV 會包含 UTF-8 BOM，方便 Excel 正確開啟繁體中文。"
+          description="下載個別資料表或分析結果。"
         >
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {csvExports.map((item) => (

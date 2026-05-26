@@ -41,7 +41,7 @@ const advancedNavItems: { key: ActivePage; label: string }[] = [
   { key: "dashboard", label: "儀表板" },
   { key: "overlap", label: "ETF 重疊" },
   { key: "prices", label: "價格表" },
-  { key: "backup", label: "備份匯出" },
+  { key: "backup", label: "備份資料" },
 ];
 
 export default function App() {

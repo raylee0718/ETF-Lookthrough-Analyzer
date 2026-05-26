@@ -438,3 +438,7 @@ Step 57 在「交易紀錄」頁加入「貼上交易紀錄」區塊。使用者
 ## Step 58 - Pasted Transaction Import QA
 
 Step 58 針對貼上交易紀錄流程做 QA 與安全性微調。確認匯入按鈕改為只有在預覽中存在有效列時才可按；預覽區新增提醒，說明預覽不會新增資料。確認匯入後只追加有效交易，並將已匯入列從預覽中移除；若仍有錯誤列，保留錯誤列與簡短訊息，方便使用者修正。成功訊息改為簡短格式：全部成功時顯示已匯入筆數，部分失敗時顯示已匯入與未匯入筆數。此步驟未更動 transaction calculation、price fetching、ETF fetching/parsing 或 lookthrough logic。
+
+## Step 59 - Backup And Restore Cleanup
+
+Step 59 將進階工具中的「備份匯出」整理為「備份資料」。完整 JSON 備份包含交易紀錄、手動持股、價格資料、ETF 成分股與使用設定；還原可選擇檔案或貼上 JSON，並在套用前顯示備份時間、交易筆數、價格筆數、ETF 成分股組數與明細筆數。`validateBackupFile` 改為深度驗證各資料列與使用設定，不相容或無效 JSON 不會寫入任何資料。確認還原前會提示目前資料將被取代；確認後才一次寫入所有備份資料。此步驟未新增雲端同步、登入或資料庫，也未更動 transaction calculation、price fetching、ETF fetching/parsing 或 lookthrough logic。
