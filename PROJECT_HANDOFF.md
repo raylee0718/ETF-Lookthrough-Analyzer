@@ -434,3 +434,7 @@ Step 55 將「我的持股」頁改為專注投組摘要、價格更新與目前
 ## Step 57 - Pasted Transaction Import
 
 Step 57 在「交易紀錄」頁加入「貼上交易紀錄」區塊。使用者可貼上每列一筆的簡單 CSV-like 交易資料，欄位順序為日期、代號、名稱、類別、買賣、股數、成交價、手續費、交易稅、備註；標題列可有可無。預覽會列出有效交易與錯誤訊息，確認後只追加有效交易，錯誤列留在預覽中供修正。名稱與類別為選填，日期需為 `YYYY-MM-DD`，買賣只接受 `買進` / `賣出`，空白手續費與交易稅視為 0。此步驟未加入券商 statement parser、OCR、券商連線或重複偵測，也未改動 transaction calculation、price fetching、ETF fetching/parsing 或 lookthrough logic。
+
+## Step 58 - Pasted Transaction Import QA
+
+Step 58 針對貼上交易紀錄流程做 QA 與安全性微調。確認匯入按鈕改為只有在預覽中存在有效列時才可按；預覽區新增提醒，說明預覽不會新增資料。確認匯入後只追加有效交易，並將已匯入列從預覽中移除；若仍有錯誤列，保留錯誤列與簡短訊息，方便使用者修正。成功訊息改為簡短格式：全部成功時顯示已匯入筆數，部分失敗時顯示已匯入與未匯入筆數。此步驟未更動 transaction calculation、price fetching、ETF fetching/parsing 或 lookthrough logic。

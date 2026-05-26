@@ -184,7 +184,7 @@ export default function TransactionsPage({
 
   const handleImportValidRows = () => {
     const validRows = importRows.filter((row) => row.isValid);
-    const skippedInvalidCount = importRows.filter((row) => !row.isValid).length;
+    const invalidRows = importRows.filter((row) => !row.isValid);
 
     if (validRows.length === 0) {
       setImportResult("沒有可匯入的有效交易。");
@@ -198,8 +198,11 @@ export default function TransactionsPage({
     if (!confirmed) return;
 
     validRows.forEach((row) => addTransaction(row.input));
+    setImportRows(invalidRows);
     setImportResult(
-      `已匯入 ${validRows.length} 筆；略過錯誤 ${skippedInvalidCount} 筆。`,
+      invalidRows.length > 0
+        ? `已匯入 ${validRows.length} 筆，${invalidRows.length} 筆未匯入。`
+        : `已匯入 ${validRows.length} 筆交易。`,
     );
   };
 
@@ -210,6 +213,7 @@ export default function TransactionsPage({
     }),
     [importRows],
   );
+  const hasValidImportRows = importSummary.validCount > 0;
 
   return (
     <main className="min-h-screen bg-stone-100 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
@@ -567,11 +571,14 @@ export default function TransactionsPage({
             <label className="grid gap-2 text-sm font-medium text-slate-700">
               貼上內容
               <textarea
-                className="min-h-40 rounded-lg border border-stone-300 bg-white px-3 py-2.5 font-mono text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className="min-h-48 rounded-lg border border-stone-300 bg-white px-3 py-2.5 font-mono text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 sm:min-h-40"
                 onChange={(event) => setImportText(event.target.value)}
                 placeholder={transactionImportSample}
                 value={importText}
               />
+              <span className="text-xs font-normal leading-5 text-slate-500">
+                預覽不會新增資料，確認後才會匯入有效交易。
+              </span>
             </label>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -592,7 +599,7 @@ export default function TransactionsPage({
                 </button>
                 <button
                   className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-stone-300"
-                  disabled={importRows.length === 0}
+                  disabled={!hasValidImportRows}
                   onClick={handleImportValidRows}
                   type="button"
                 >
