@@ -49,8 +49,6 @@ export default function App() {
     [transactions.transactions],
   );
 
-  const isMvpPage = mvpNavItems.some((item) => item.key === activePage);
-
   return (
     <div className="min-h-screen bg-stone-100">
       <nav className="sticky top-0 z-10 border-b border-stone-200 bg-white/95 px-3 py-3 backdrop-blur sm:px-6 lg:px-8">
@@ -60,9 +58,7 @@ export default function App() {
               <p className="text-sm font-semibold text-slate-950">
                 ETF Lookthrough Analyzer
               </p>
-              <p className="text-xs text-slate-500">
-                MVP 聚焦：持股、ETF 成分股、穿透分析
-              </p>
+              <p className="text-xs text-slate-500">持股、成分股、穿透分析</p>
             </div>
 
             <div className="-mx-1 flex gap-1 overflow-x-auto rounded-lg bg-stone-100 p-1 sm:mx-0">
@@ -113,18 +109,6 @@ export default function App() {
           </div>
         </div>
       </nav>
-
-      {isMvpPage ? (
-        <section className="px-4 pt-6 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-6xl rounded-lg border border-blue-200 bg-blue-50 p-5 text-blue-950">
-            <h1 className="text-base font-semibold">ETF 穿透分析 MVP</h1>
-            <p className="mt-2 text-sm leading-6">
-              這個工具的核心目標是：輸入目前持有的 ETF / 股票，搭配 ETF
-              成分股資料，計算你實際暴露在哪些台灣股票與產業。交易紀錄、價格追蹤、備份與自動資料來源屬於進階功能，先不放在主要流程。
-            </p>
-          </div>
-        </section>
-      ) : null}
 
       {activePage === "dashboard" ? (
         <Dashboard

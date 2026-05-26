@@ -253,7 +253,7 @@ const getUnsupportedEtfMessage = (holding: PortfolioHolding) => {
   const category = holding.category.trim().toUpperCase();
 
   if (symbol === "00646") {
-    return "00646 已支援官方 proxy 更新；若更新失敗，仍可使用 CSV 匯入或暫以單一美股 ETF 曝險呈現。";
+    return "00646 已支援自動更新；若更新失敗，仍可使用 CSV 匯入。";
   }
 
   if (category.includes("海外")) {
@@ -261,7 +261,7 @@ const getUnsupportedEtfMessage = (holding: PortfolioHolding) => {
   }
 
   if (lowPriorityProxySymbols.has(symbol)) {
-    return "00994A 已非目前使用者優先標的，保留為低優先度 / CSV fallback。";
+    return "00994A 目前為低優先，請使用 CSV 匯入。";
   }
 
   return "尚未建立此 ETF 的自動來源，請使用 CSV 匯入。";
@@ -987,7 +987,7 @@ export default function EtfConstituentsPage({
 
   const handleReset = () => {
     const confirmed = window.confirm(
-      "確定要重設成範例成分股資料嗎？這會覆蓋目前儲存的 ETF 成分股。",
+      "這會覆蓋目前資料。建議先備份，是否繼續？",
     );
 
     if (confirmed) {
@@ -1517,12 +1517,11 @@ export default function EtfConstituentsPage({
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <header className="flex flex-col gap-3 py-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm font-medium text-blue-700">ETF 成分股資料</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-normal text-slate-950">
               ETF 成分股
             </h1>
             <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
-              匯入每檔 ETF 目前使用的成分股清單，並用資料日期與來源標示新鮮度。
+              更新目前持有 ETF 的官方成分股資料，儲存後會用於穿透分析。
             </p>
           </div>
           <button
@@ -1530,22 +1529,18 @@ export default function EtfConstituentsPage({
             onClick={handleReset}
             type="button"
           >
-            重設範例資料
+            載入範例資料
           </button>
         </header>
 
         <section className="rounded-lg border border-blue-200 bg-blue-50 p-5 text-blue-950">
-          <h2 className="text-base font-semibold">資料狀態說明</h2>
-          <p className="mt-2 text-sm leading-6">
-            第二步：匯入 ETF 成分股資料。若 0050 provider 無法自動抓取，可使用 CSV / 貼上表格匯入。
-          </p>
-          <p className="mt-2 text-sm leading-6">
-            此工具保留每檔 ETF 目前儲存的成分股資料；重新匯入同一檔 ETF 會取代該 ETF 的現有清單。穿透分析預設使用每檔 ETF 最新資料日期的成分股。
+          <p className="text-sm leading-6">
+            支援 0050、00981A、00646。更新前會先預覽，儲存後才會取代既有成分股。
           </p>
         </section>
 
         <SectionCard
-          title="Auto MVP 狀態"
+          title="更新狀態"
           description="按下更新時才會抓官方資料；目前不會背景自動更新。官方資料日期不一定等於今天，儲存後才會覆蓋本機 ETF 成分股資料。"
         >
           {autoMvpStatusRows.length === 0 ? (
@@ -1609,7 +1604,7 @@ export default function EtfConstituentsPage({
         >
           <div className="grid gap-4">
             <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm leading-6 text-emerald-950">
-              日常使用時，先看 Auto MVP 狀態；若官方資料日期較新，再按一鍵更新並儲存。技術細節可展開查看。
+              若官方資料日期較新，按一鍵更新並儲存。
             </p>
             <div className="grid gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-950">
               {heldSupportedProxyEtfs.length > 0 ? (
@@ -1640,7 +1635,7 @@ export default function EtfConstituentsPage({
                 </div>
               ) : null}
               <p>
-                本工具會在你按下更新時抓取官方來源。官方資料日期不一定等於今天；若官方尚未更新，asOfDate 可能仍會停在前一交易日。
+                官方資料日期不一定等於今天；若官方尚未更新，日期可能停在前一交易日。
               </p>
               <label className="flex items-center gap-2 text-sm font-medium text-blue-950">
                 <input
@@ -1966,10 +1961,10 @@ export default function EtfConstituentsPage({
 
                 <div className="grid gap-2 rounded-lg border border-stone-200 bg-white p-3 text-sm leading-6 text-slate-600">
                   <p>
-                    00646 已可透過官方元大 PCF/Daily JSON 更新股票成分；期貨 / 現金 / 保證金會排除在股票穿透成分之外，CSV / 手動匯入仍保留為 fallback。
+                    00646 更新會排除期貨 / 現金 / 保證金，CSV / 手動匯入仍可使用。
                   </p>
                   <p>
-                    00994A 已非目前優先標的，保留為低優先度 / CSV fallback，不顯示為主要更新按鈕。
+                    00994A 目前為低優先，不顯示為主要更新按鈕。
                   </p>
                 </div>
 
@@ -2015,7 +2010,7 @@ export default function EtfConstituentsPage({
             進階 provider 診斷與設定
           </summary>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            這些工具保留給來源診斷與 provider 設定，日常更新請優先使用上方 Auto MVP 流程。
+            來源診斷與 provider 設定工具。
           </p>
           <div className="mt-4 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
           <SectionCard
@@ -2558,15 +2553,15 @@ export default function EtfConstituentsPage({
 
         <details className="rounded-lg border border-stone-200 bg-stone-50 p-4">
           <summary className="cursor-pointer text-base font-semibold text-slate-950">
-            CSV / 手動匯入 fallback
+            CSV / 手動匯入
           </summary>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            若官方 proxy 暫時失敗，仍可展開這裡貼上表格或匯入 CSV，不會自動覆蓋資料。
+            自動更新失敗或未支援的 ETF，可用此方式匯入。
           </p>
           <div className="mt-4 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
             <div className="flex flex-col gap-6">
             <SectionCard
-              title="1. 匯入設定"
+              title="匯入設定"
               description="設定 ETF 代號、資料日期與來源。"
             >
               <div className="grid gap-4">
@@ -2619,7 +2614,7 @@ export default function EtfConstituentsPage({
             </SectionCard>
 
             <SectionCard
-              title="2. 貼上或匯入資料"
+              title="貼上或匯入資料"
               description="支援逗號分隔與從 Excel 複製的 tab 分隔資料。解析後不會立即儲存。"
             >
               <div className="grid gap-4">
@@ -2636,7 +2631,7 @@ export default function EtfConstituentsPage({
                     <div>
                       <p className="font-semibold">00646 美股成分匯入提示</p>
                       <p className="mt-1">
-                        00646 屬於海外成分股 ETF，目前不支援自動抓取。若要穿透分析 00646，可手動貼上或匯入美股成分資料，並將市場欄位填為「美股」。
+                        匯入 00646 時，市場欄位請填「美股」。
                       </p>
                     </div>
                     <button
@@ -2705,7 +2700,7 @@ export default function EtfConstituentsPage({
           </div>
 
           <SectionCard
-            title="3. 匯入預覽"
+            title="匯入預覽"
             description="確認資料正確後，再取代這檔 ETF 目前儲存的成分股。"
           >
             {previewRecords.length === 0 ? (
@@ -2840,8 +2835,8 @@ export default function EtfConstituentsPage({
         ) : null}
 
         <SectionCard
-          title="4. 目前已儲存資料"
-          description="這些資料儲存在瀏覽器 localStorage。"
+          title="目前已儲存資料"
+          description="每檔 ETF 會使用最新資料日期。"
         >
           <div className="mb-4 flex flex-col gap-2 sm:max-w-xs">
             <label className="text-sm font-medium text-slate-700" htmlFor="etf-filter">

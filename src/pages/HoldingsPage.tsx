@@ -107,7 +107,7 @@ export default function HoldingsPage({
 
   const handleReset = () => {
     const confirmed = window.confirm(
-      "確定要重設為範例資料嗎？目前的本機持股資料會被覆蓋。",
+      "這會覆蓋目前資料。建議先備份，是否繼續？",
     );
 
     if (confirmed) {
@@ -121,12 +121,11 @@ export default function HoldingsPage({
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <header className="flex flex-col gap-3 py-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm font-medium text-blue-700">手動持股資料</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-normal text-slate-950">
               我的持股
             </h1>
             <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
-              新增、編輯或刪除你的 ETF 與股票持股。資料會儲存在此瀏覽器的 localStorage。
+              管理目前持有的 ETF 與股票。
             </p>
           </div>
           <button
@@ -134,16 +133,13 @@ export default function HoldingsPage({
             onClick={handleReset}
             type="button"
           >
-            重設為範例資料
+            載入範例資料
           </button>
         </header>
 
         <section className="rounded-lg border border-blue-200 bg-blue-50 p-5 text-blue-950">
           <p className="text-sm leading-6">
-            第一步：輸入你目前持有的 ETF 或個股。MVP 模式下只需要填目前市值，不需要輸入完整交易紀錄。
-          </p>
-          <p className="mt-2 text-sm leading-6">
-            這裡的資料會用於「手動持股模式」。如果你改用「交易紀錄模式」，系統會改以交易紀錄與價格表估算市值。
+            請填目前市值；系統會用它計算穿透後曝險。
           </p>
         </section>
 
@@ -156,14 +152,14 @@ export default function HoldingsPage({
           <StatCard
             label="持股筆數"
             value={`${holdings.length} 筆`}
-            helperText="儲存在此瀏覽器"
+            helperText="目前清單"
           />
         </section>
 
         <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
           <SectionCard
             title={editingId ? "編輯持股" : "新增持股"}
-            description="手動持股模式會直接使用這裡輸入的市值。"
+            description="輸入目前市值即可。"
           >
             <form className="grid gap-4" onSubmit={handleSubmit}>
               <label className="grid gap-2 text-sm font-medium text-slate-700">

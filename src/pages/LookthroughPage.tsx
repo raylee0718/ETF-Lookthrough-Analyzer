@@ -112,12 +112,11 @@ export default function LookthroughPage({
     <main className="min-h-screen bg-stone-100 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <header className="py-3">
-          <p className="text-sm font-medium text-blue-700">Step 8 模式化穿透分析</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-normal text-slate-950">
             穿透分析
           </h1>
           <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
-            查看目前資料來源下的穿透後股票曝險、來源拆解，以及產業彙總。
+            查看穿透後的台股 / 美股曝險與主要底層持股。
           </p>
         </header>
 
@@ -126,11 +125,10 @@ export default function LookthroughPage({
         <section className="rounded-lg border border-blue-200 bg-blue-50 p-5 text-blue-950">
           <h2 className="text-base font-semibold">{portfolioSource.modeLabel}</h2>
           <div className="mt-2 grid gap-2 text-sm leading-6">
-            <p>第三步：查看穿透後實際持有的底層股票、產業曝險與集中度提醒。</p>
             {portfolioSource.dataQualityNotes.map((note) => (
               <p key={note}>{note}</p>
             ))}
-            <p>穿透分析目前使用每檔 ETF 最新日期的成分股資料。</p>
+            <p>使用每檔 ETF 已儲存的最新成分股資料。</p>
             {portfolioSource.missingPriceSymbols.length > 0 ? (
               <p>缺少價格：{portfolioSource.missingPriceSymbols.join("、")}</p>
             ) : null}
@@ -198,7 +196,7 @@ export default function LookthroughPage({
 
         <SectionCard
           title="市場曝險分類"
-          description="依底層成分股市場彙總穿透後曝險，00646 未匯入成分股時會先以單一美股 ETF 曝險呈現。"
+          description="依底層成分市場彙總。"
         >
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {marketExposures.map((marketExposure) => (
@@ -220,12 +218,9 @@ export default function LookthroughPage({
             <div>
               <h3 className="text-base font-semibold text-slate-950">顯示門檻</h3>
               <p className="mt-1 text-sm leading-6 text-slate-600">
-                顯示門檻只影響表格列出的細項，不影響總市值、市場曝險與集中度計算。
+                低於門檻的成分會彙總為其他，不影響總計。
               </p>
             </div>
-            <p className="rounded-lg border border-blue-100 bg-white p-3 text-sm leading-6 text-slate-600">
-              表格會優先顯示影響較大的成分股。低於門檻或超過顯示筆數的成分會依市場彙總為「其他」，不影響總計。
-            </p>
             <div className="grid gap-3 md:grid-cols-4 md:items-end">
               <label className="grid gap-2 text-sm font-medium text-slate-700">
                 最小顯示金額
