@@ -426,3 +426,7 @@ Step 52 確認交易紀錄實用流程：買進會建立目前持股，多筆買
 ## Step 53 - Taiwan Close Price Update
 
 Step 53 新增 `/api/market-prices?symbols=...` serverless endpoint 與「我的持股」頁的「更新目前價格」按鈕。前端只送出目前仍持有的 symbol 清單，不送交易明細；API 會抓取 TWSE `STOCK_DAY_ALL` 與 TPEx `tpex_mainboard_daily_close_quotes` 官方 OpenAPI，整理成 `{ symbol, price, priceDate, source, status }` 後只回傳請求的代號。有效價格會透過 `upsertLatestPrice` 寫入本機 price records，立即更新市值、投組佔比、未實現損益與穿透分析。失敗或缺價的代號不會覆蓋既有有效價格，也不會用 0 或投入成本補值。此功能是最近可用收盤價，不是即時報價；沒有加入背景排程、績效圖或 00646 底層美股價格抓取。
+
+## Step 55 - Holdings Page Layout Refinement
+
+Step 55 將「我的持股」頁的目前持股表與新增交易表單拆成上下分區。投組摘要、價格更新與目前持股表維持在頁面前段，交易表單改為全寬卡片並使用最多三欄的 responsive grid，避免和寬表格並排造成擁擠。此步驟只調整 UI layout 與少量文案，不改交易計算、價格抓取、ETF constituents proxy/parser 或缺價處理規則。
