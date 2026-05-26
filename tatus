@@ -1,0 +1,7 @@
+warning: in the working copy of 'src/App.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/EtfConstituentsPage.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/HoldingsPage.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/LookthroughPage.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/OverlapPage.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/PricesPage.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/TransactionsPage.tsx', LF will be replaced by CRLF the next time Git touches it

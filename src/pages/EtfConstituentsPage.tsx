@@ -162,7 +162,7 @@ const getProviderDecisionNote = (result: EtfHoldingsFetchResult) => {
   }
 
   if (result.supportLevel === "blocked_by_cors") {
-    return "0050 官方資料來源可用，但瀏覽器無法直接抓取。下一步可選擇：A. 維持 CSV 匯入；B. 建立極薄 serverless proxy。";
+    return "0050 官方資料來源可用，但瀏覽器無法直接抓取。可維持 CSV 匯入或透過伺服器代理。";
   }
 
   if (result.supportLevel === "partial") {
@@ -306,7 +306,7 @@ const compareOptionalAsOfDates = (first?: string, second?: string) => {
 
 const getProxyWarningSummary = (result: EtfHoldingsProxyResponse) => {
   if (result.warnings.length === 0) {
-    return "無 warnings";
+    return "無警示";
   }
 
   if (result.symbol === "00646" && result.warnings.every(isAllowed00646NonStockWarning)) {
@@ -317,7 +317,7 @@ const getProxyWarningSummary = (result: EtfHoldingsProxyResponse) => {
     return "官方 PCF 含部分非持股或無效列，已略過，不影響有效成分股儲存。";
   }
 
-  return `${result.warnings.length} 則 warning，請展開技術細節查看。`;
+  return `${result.warnings.length} 則警示，請展開技術細節查看。`;
 };
 
 const getUpdateNeedLabel = (localAsOfDate?: string, fetchedAsOfDate?: string) => {
@@ -1381,7 +1381,7 @@ export default function EtfConstituentsPage({
                 </span>
               </p>
               <p>
-                <span className="text-slate-500">warnings：</span>
+                <span className="text-slate-500">警示：</span>
                 <span className="font-semibold text-slate-950">
                   {getProxyWarningSummary(result)}
                 </span>
@@ -1390,7 +1390,7 @@ export default function EtfConstituentsPage({
 
             {result.symbol === "00981A" ? (
               <p className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-blue-950">
-                00981A 官方 PCF 日期可能落後於今天。請以官方回傳的 asOfDate 為準；若 fetchedAt 是今天但 asOfDate 較早，代表系統今天有抓取，但官方 PCF 目前回傳的是較早日期。
+                00981A 官方 PCF 日期可能落後於今天。請以官方資料日期為準；抓取時間只代表系統本次有重新讀取。
               </p>
             ) : null}
 
@@ -1406,22 +1406,22 @@ export default function EtfConstituentsPage({
               </summary>
               <div className="mt-3 grid gap-3">
                 <p>{"資料來源："}{result.source}</p>
-                <p>sourceUrl: {result.sourceUrl}</p>
-                <p>cacheControl: {result.cacheControl ?? "-"}</p>
-                <p>cacheNote: {result.cacheNote ?? "-"}</p>
-                <p>refreshRequested: {result.refreshRequested ? "true" : "false"}</p>
+                <p>來源網址：{result.sourceUrl}</p>
+                <p>快取設定：{result.cacheControl ?? "-"}</p>
+                <p>快取說明：{result.cacheNote ?? "-"}</p>
+                <p>強制重新抓取：{result.refreshRequested ? "是" : "否"}</p>
                 {technicalSummary?.requestDateLabel ? (
-                  <p>request date: {technicalSummary.requestDateLabel}</p>
+                  <p>請求日期：{technicalSummary.requestDateLabel}</p>
                 ) : null}
                 {technicalSummary?.requestVariant ? (
-                  <p>request variant: {technicalSummary.requestVariant}</p>
+                  <p>請求方式：{technicalSummary.requestVariant}</p>
                 ) : null}
                 {technicalSummary?.officialAsOfDate ? (
-                  <p>official asOfDate: {technicalSummary.officialAsOfDate}</p>
+                  <p>官方資料日期：{technicalSummary.officialAsOfDate}</p>
                 ) : null}
                 {result.warnings.length > 0 ? (
                   <div>
-                    <p className="font-semibold text-amber-900">Warnings</p>
+                    <p className="font-semibold text-amber-900">警示</p>
                     {result.warnings.map((warning) => (
                       <p key={warning}>- {warning}</p>
                     ))}
@@ -1429,7 +1429,7 @@ export default function EtfConstituentsPage({
                 ) : null}
                 {result.errors.length > 0 ? (
                   <div className="text-red-800">
-                    <p className="font-semibold">Errors</p>
+                    <p className="font-semibold">錯誤</p>
                     {result.errors.map((error) => (
                       <p key={error}>- {error}</p>
                     ))}
@@ -1503,7 +1503,7 @@ export default function EtfConstituentsPage({
 
             {!isSafeToSave ? (
               <p className="rounded-lg border border-stone-200 bg-white p-3 text-slate-600">
-                只有在至少 20 筆成分股有正權重、所有權重皆有效且非負、沒有 errors，且 00646 僅有忽略期貨 / 現金 / 保證金這類非股票列 warnings 時才能儲存。
+                只有在至少 20 筆成分股有正權重、所有權重皆有效且非負、沒有錯誤，且 00646 僅有忽略期貨 / 現金 / 保證金這類非股票列警示時才能儲存。
               </p>
             ) : null}
           </div>
@@ -1541,7 +1541,7 @@ export default function EtfConstituentsPage({
 
         <SectionCard
           title="更新狀態"
-          description="按下更新時才會抓官方資料；目前不會背景自動更新。官方資料日期不一定等於今天，儲存後才會覆蓋本機 ETF 成分股資料。"
+          description="按下更新才會抓官方資料；官方資料日期不一定等於今天。"
         >
           {autoMvpStatusRows.length === 0 ? (
             <p className="rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm leading-6 text-slate-600">
@@ -1600,7 +1600,7 @@ export default function EtfConstituentsPage({
 
         <SectionCard
           title="一鍵更新目前持有 ETF"
-          description="系統會根據你在「我的持股」輸入的 ETF，找出目前支援自動更新的標的，並透過官方資料來源更新成分股。更新前會先預覽，不會直接覆蓋資料。"
+          description="依目前持股找出可更新的 ETF。更新前會先預覽。"
         >
           <div className="grid gap-4">
             <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm leading-6 text-emerald-950">
@@ -1616,7 +1616,7 @@ export default function EtfConstituentsPage({
                 </p>
               ) : (
                 <p>
-                  目前持股中沒有可自動更新的 ETF。你仍可使用 CSV / 貼上表格匯入成分股。
+                  目前持股中沒有可自動更新的 ETF。可改用 CSV / 貼上表格匯入。
                 </p>
               )}
               {heldUnsupportedEtfSuggestions.length > 0 ? (
@@ -1625,7 +1625,7 @@ export default function EtfConstituentsPage({
                     <p key={suggestion.symbol}>
                       {suggestion.symbol} {suggestion.name}：
                       {suggestion.symbol === "00646"
-                        ? "尚未支援自動成分股更新。你可以暫時讓它以單一美股 ETF 曝險呈現，或使用 CSV / 貼上表格匯入美股成分股。"
+                          ? "尚未支援自動更新，可暫以單一美股 ETF 曝險呈現，或匯入美股成分股。"
                         : suggestion.symbol === "00994A"
                           ? "目前不列入主要自動更新流程，請使用 CSV 匯入或進階工具。"
                           : (suggestion.unsupportedMessage ??
@@ -1686,7 +1686,7 @@ export default function EtfConstituentsPage({
                     批次更新預覽
                   </h3>
                   <p className="mt-1 text-sm leading-6 text-slate-600">
-                    只會儲存通過安全檢查的 ETF；failed 或 unsafe 結果會被略過。
+                    只會儲存通過檢查的 ETF；失敗或不可儲存的結果會略過。
                   </p>
                 </div>
                 <div className="overflow-x-auto">
@@ -1704,9 +1704,9 @@ export default function EtfConstituentsPage({
                           權重合計
                         </th>
                         <th className="pb-3 text-right font-medium">
-                          warnings
+                          警示
                         </th>
-                        <th className="pb-3 text-right font-medium">errors</th>
+                        <th className="pb-3 text-right font-medium">錯誤</th>
                         <th className="pb-3 font-medium">是否可儲存</th>
                       </tr>
                     </thead>
@@ -1728,7 +1728,7 @@ export default function EtfConstituentsPage({
                             </td>
                             <td className="py-4 text-slate-700">{etf.name}</td>
                             <td className="py-4 text-slate-700">
-                              {result?.status ?? (error ? "failed" : "-")}
+                              {result?.status ?? (error ? "失敗" : "-")}
                             </td>
                             <td className="py-4 text-slate-600">
                               {result?.asOfDate ?? "-"}
@@ -1817,12 +1817,12 @@ export default function EtfConstituentsPage({
                             </div>
                             {result.status === "partial" ? (
                               <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
-                                此來源回傳 partial，請確認 warnings 後再儲存。
+                                此來源回傳 partial，請確認警示後再儲存。
                               </p>
                             ) : null}
                             {result.warnings.length > 0 ? (
                               <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
-                                <p className="font-semibold">Warnings</p>
+                                <p className="font-semibold">警示</p>
                                 {result.warnings.map((warning) => (
                                   <p key={warning}>- {warning}</p>
                                 ))}
@@ -1830,7 +1830,7 @@ export default function EtfConstituentsPage({
                             ) : null}
                             {result.errors.length > 0 ? (
                               <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-800">
-                                <p className="font-semibold">Errors</p>
+                                <p className="font-semibold">錯誤</p>
                                 {result.errors.map((resultError) => (
                                   <p key={resultError}>- {resultError}</p>
                                 ))}
@@ -2290,7 +2290,7 @@ export default function EtfConstituentsPage({
                                       {testResult.supportLevel ===
                                       "blocked_by_cors" ? (
                                         <p className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-amber-950">
-                                          瀏覽器端可能受到 CORS 限制，無法直接讀取官方來源。官方資料本身可用，但此 local-first 前端版本可能需要 CSV 匯入或 serverless proxy 才能自動更新。
+                                          瀏覽器端可能受到 CORS 限制，無法直接讀取官方來源。請改用 CSV 匯入或伺服器代理。
                                         </p>
                                       ) : null}
                                       {testResult.errors.length > 0 ? (
@@ -2310,15 +2310,15 @@ export default function EtfConstituentsPage({
                                     </div>
                                     <details className="mt-3 rounded-lg border border-blue-100 bg-white p-3">
                                       <summary className="cursor-pointer font-medium">
-                                        debug details
+                                        技術細節
                                       </summary>
                                       <div className="mt-2 grid gap-2 break-words text-xs text-slate-600">
                                         <p>
-                                          fetchedAt：
+                                          抓取時間：
                                           {testResult.fetchedAt}
                                         </p>
                                         <p>
-                                          parsed row count：
+                                          解析筆數：
                                           {testResult.constituents.length}
                                         </p>
                                         {testResult.attemptedSources?.map(
@@ -2327,9 +2327,9 @@ export default function EtfConstituentsPage({
                                               className="rounded border border-stone-200 p-2"
                                               key={`debug-${source.label}-${source.url}`}
                                             >
-                                              <p>attempted URL：{source.url}</p>
+                                              <p>嘗試網址：{source.url}</p>
                                               <p>
-                                                source status：
+                                                來源狀態：
                                                 {
                                                   providerSupportLevelLabels[
                                                     source.status
@@ -2337,18 +2337,18 @@ export default function EtfConstituentsPage({
                                                 }
                                               </p>
                                               <p>
-                                                raw error name：
+                                                原始錯誤名稱：
                                                 {source.errorName ?? "-"}
                                               </p>
                                               <p>
-                                                raw error message：
+                                                原始錯誤訊息：
                                                 {source.errorMessage ?? "-"}
                                               </p>
                                               <p>
-                                                CORS-like：
+                                                類似 CORS 問題：
                                                 {source.corsLikeFailure
-                                                  ? "yes"
-                                                  : "no"}
+                                                  ? "是"
+                                                  : "否"}
                                               </p>
                                             </div>
                                           ),
@@ -2356,7 +2356,7 @@ export default function EtfConstituentsPage({
                                         {testResult.warnings.length > 0 ? (
                                           <div>
                                             <p className="font-medium">
-                                              warnings
+                                              警示
                                             </p>
                                             {testResult.warnings.map(
                                               (warning) => (
@@ -2370,7 +2370,7 @@ export default function EtfConstituentsPage({
                                         {testResult.errors.length > 0 ? (
                                           <div>
                                             <p className="font-medium">
-                                              errors
+                                              錯誤
                                             </p>
                                             {testResult.errors.map((error) => (
                                               <p key={`debug-${error}`}>

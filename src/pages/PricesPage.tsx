@@ -313,14 +313,8 @@ export default function PricesPage({
           </button>
         </header>
 
-        <section className="rounded-lg border border-blue-200 bg-blue-50 p-5 text-blue-950">
-          <h2 className="text-base font-semibold">價格表說明</h2>
-          <p className="mt-2 text-sm leading-6">
-            這裡可手動輸入或匯入每日收盤價，讓目前持股轉換為市值。
-          </p>
-          <p className="mt-2 text-sm leading-6">
-            價格表會用來計算目前市值。缺少價格時，相關市值與比例會先顯示為待更新。
-          </p>
+        <section className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-950 sm:p-5">
+          管理收盤價。缺少價格時，市值與比例會顯示為待更新。
         </section>
 
         <section className="grid gap-4 sm:grid-cols-3">
@@ -342,8 +336,8 @@ export default function PricesPage({
         </section>
 
         <SectionCard
-          title="自動收盤價更新"
-          description="這會在你按下更新時，嘗試從官方公開資料抓取台股收盤價，並寫入價格表。這不是背景自動排程。"
+          title="更新收盤價"
+          description="按下更新才會抓取最近可用收盤價；非即時報價。"
         >
           <div className="grid gap-4">
             <div className="flex flex-col gap-3 sm:flex-row">

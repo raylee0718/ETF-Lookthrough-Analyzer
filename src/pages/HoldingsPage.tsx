@@ -292,7 +292,7 @@ export default function HoldingsPage({
               目前價格可手動更新，也可抓最近收盤價。
             </p>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
             <button
               className="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 sm:w-auto"
               onClick={onNavigateToTransactions}
@@ -417,20 +417,20 @@ export default function HoldingsPage({
           title="目前持股"
         >
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1320px] text-left text-sm">
+            <table className="w-full min-w-[1180px] whitespace-nowrap text-left text-sm">
               <thead>
                 <tr className="border-b border-stone-200 text-slate-500">
-                  <th className="pb-3 font-medium">代號</th>
+                    <th className="sticky left-0 z-[1] bg-white pb-3 pr-4 font-semibold text-slate-700">代號</th>
                   <th className="pb-3 font-medium">名稱</th>
-                  <th className="pb-3 text-right font-medium">剩餘股數</th>
+                  <th className="pb-3 text-right font-medium">目前股數</th>
                   <th className="pb-3 text-right font-medium">平均成本</th>
                   <th className="pb-3 text-right font-medium">投入成本</th>
                   <th className="pb-3 text-right font-medium">目前價格</th>
-                  <th className="pb-3 text-right font-medium">目前市值</th>
+                  <th className="pb-3 text-right font-semibold text-slate-700">目前市值</th>
                   <th className="pb-3 text-right font-medium">未實現損益</th>
                   <th className="pb-3 text-right font-medium">未實現報酬率</th>
                   <th className="pb-3 text-right font-medium">總損益</th>
-                  <th className="pb-3 text-right font-medium">投組佔比</th>
+                  <th className="pb-3 text-right font-semibold text-slate-700">投組佔比</th>
                 </tr>
               </thead>
               <tbody>
@@ -459,9 +459,9 @@ export default function HoldingsPage({
                         className="border-b border-stone-100 last:border-0"
                         key={position.symbol}
                       >
-                        <td className="py-4 font-semibold text-slate-950">
-                          {position.symbol}
-                        </td>
+                    <td className="sticky left-0 z-[1] bg-white py-4 pr-4 font-semibold text-slate-950">
+                      {position.symbol}
+                    </td>
                         <td className="py-4 text-slate-700">{position.name}</td>
                         <td className="py-4 text-right text-slate-600">
                           {formatShares(position.shares)}
@@ -501,9 +501,9 @@ export default function HoldingsPage({
                             {latestPrice?.date ?? "待更新"}
                           </p>
                         </td>
-                        <td className="py-4 text-right font-medium text-slate-950">
-                          {hasCurrentPrice ? formatCurrency(position.marketValue) : "—"}
-                        </td>
+                    <td className="py-4 text-right font-semibold text-slate-950">
+                      {hasCurrentPrice ? formatCurrency(position.marketValue) : "—"}
+                    </td>
                         <td className="py-4 text-right text-slate-600">
                           {hasCurrentPrice
                             ? formatCurrency(position.unrealizedPnL)
@@ -517,10 +517,10 @@ export default function HoldingsPage({
                         <td className="py-4 text-right text-slate-600">
                           {hasCurrentPrice ? formatCurrency(position.totalPnL) : "—"}
                         </td>
-                        <td className="py-4 text-right text-slate-600">
-                          {portfolioWeight === null
-                            ? "—"
-                            : formatPercent(portfolioWeight)}
+                    <td className="py-4 text-right font-semibold text-slate-950">
+                      {portfolioWeight === null
+                        ? "—"
+                        : formatPercent(portfolioWeight)}
                         </td>
                       </tr>
                     );
@@ -538,7 +538,7 @@ export default function HoldingsPage({
           <p className="mt-2 text-sm leading-6 text-slate-600">
             只有在沒有交易紀錄時，穿透分析才會使用這裡的手動持股。
           </p>
-          <div className="mt-4 grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
+          <div className="mt-4 grid gap-6">
             <SectionCard
               description="需要臨時調整時可使用。"
               title={editingManualId ? "編輯手動持股" : "新增手動持股"}

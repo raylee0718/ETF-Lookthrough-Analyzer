@@ -31,6 +31,7 @@ type ActivePage =
   | "backup";
 
 const mvpNavItems: { key: ActivePage; label: string }[] = [
+  { key: "transactions", label: "交易紀錄" },
   { key: "holdings", label: "我的持股" },
   { key: "constituents", label: "ETF 成分股" },
   { key: "lookthrough", label: "穿透分析" },
@@ -39,7 +40,6 @@ const mvpNavItems: { key: ActivePage; label: string }[] = [
 const advancedNavItems: { key: ActivePage; label: string }[] = [
   { key: "dashboard", label: "儀表板" },
   { key: "overlap", label: "ETF 重疊" },
-  { key: "transactions", label: "交易紀錄" },
   { key: "prices", label: "價格表" },
   { key: "backup", label: "備份匯出" },
 ];
@@ -95,7 +95,7 @@ export default function App() {
               <p className="text-sm font-semibold text-slate-950">
                 ETF Lookthrough Analyzer
               </p>
-              <p className="text-xs text-slate-500">持股、成分股、穿透分析</p>
+              <p className="text-xs text-slate-500">交易、持股、成分股、穿透</p>
             </div>
 
             <div className="-mx-1 flex gap-1 overflow-x-auto rounded-lg bg-stone-100 p-1 sm:mx-0">

@@ -62,21 +62,8 @@ export default function OverlapPage({ constituents }: OverlapPageProps) {
           </h1>
         </header>
 
-        <section className="rounded-lg border border-blue-200 bg-blue-50 p-5 text-blue-950">
-          <h2 className="text-base font-semibold">重疊分析說明</h2>
-          <p className="mt-2 text-sm leading-6">
-            這裡會比較不同 ETF
-            的成分股重疊程度，幫助你判斷表面分散的 ETF
-            是否實際上持有相同股票。
-          </p>
-          <p className="mt-2 text-sm leading-6">
-            加權重疊率以共同持股的較小權重加總計算。例如 A ETF 持有台積電
-            50%，B ETF 持有台積電 20%，則台積電對加權重疊率貢獻 20%。
-          </p>
-        </section>
-
-        <section className="rounded-lg border border-blue-200 bg-blue-50 p-5 text-sm leading-6 text-blue-950">
-          ETF 重疊分析目前使用每檔 ETF 最新日期的成分股資料。
+        <section className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-950 sm:p-5">
+          比較 ETF 成分股重疊程度，找出看似分散但底層相近的部位。
         </section>
 
         {etfSymbols.length < 2 ? (

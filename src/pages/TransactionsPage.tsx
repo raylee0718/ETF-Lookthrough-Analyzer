@@ -249,10 +249,10 @@ export default function TransactionsPage({
           </button>
         </header>
 
-        <section className="rounded-lg border border-blue-200 bg-blue-50 p-5 text-blue-950">
+        <section className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-blue-950 sm:p-5">
           <h2 className="text-base font-semibold">交易整理</h2>
           <p className="mt-2 text-sm leading-6">
-            記錄買進與賣出後，系統會整理目前股數、平均成本與損益。價格可在「我的持股」更新或手動輸入。
+            記錄買進與賣出，系統會整理目前股數、平均成本與損益。
           </p>
         </section>
 
@@ -303,9 +303,9 @@ export default function TransactionsPage({
         <div className="grid gap-6">
           <SectionCard
             title={editingId ? "編輯交易" : "新增交易"}
-            description="新增買進或賣出後，系統會整理目前持股。"
+            description="輸入買進或賣出資料。"
           >
-            <form className="grid gap-4" onSubmit={handleSubmit}>
+            <form className="grid gap-5" onSubmit={handleSubmit}>
               <div className="grid gap-4 md:grid-cols-3">
                 <label className="grid gap-2 text-sm font-medium text-slate-700">
                   日期
@@ -482,17 +482,17 @@ export default function TransactionsPage({
             description="使用平均成本法整理部位；缺少價格時市值與未實現損益待更新。"
           >
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1180px] text-left text-sm">
+              <table className="w-full min-w-[1120px] whitespace-nowrap text-left text-sm">
                 <thead>
                   <tr className="border-b border-stone-200 text-slate-500">
-                    <th className="pb-3 font-medium">代號</th>
+                    <th className="sticky left-0 z-[1] bg-white pb-3 pr-4 font-semibold text-slate-700">代號</th>
                     <th className="pb-3 font-medium">名稱</th>
                     <th className="pb-3 font-medium">類別</th>
                     <th className="pb-3 text-right font-medium">目前股數</th>
                     <th className="pb-3 text-right font-medium">平均成本</th>
                     <th className="pb-3 text-right font-medium">投入成本</th>
                     <th className="pb-3 text-right font-medium">最新價格</th>
-                    <th className="pb-3 text-right font-medium">目前市值</th>
+                    <th className="pb-3 text-right font-semibold text-slate-700">目前市值</th>
                     <th className="pb-3 text-right font-medium">未實現損益</th>
                     <th className="pb-3 text-right font-medium">未實現報酬率</th>
                     <th className="pb-3 text-right font-medium">已實現損益</th>
@@ -506,7 +506,7 @@ export default function TransactionsPage({
                       className="border-b border-stone-100 last:border-0"
                       key={position.symbol}
                     >
-                      <td className="py-4 font-semibold text-slate-950">
+                      <td className="sticky left-0 z-[1] bg-white py-4 pr-4 font-semibold text-slate-950">
                         {position.symbol}
                       </td>
                       <td className="py-4 text-slate-700">{position.name}</td>
@@ -525,7 +525,7 @@ export default function TransactionsPage({
                           ? formatCurrency(position.marketPrice)
                           : "待更新"}
                       </td>
-                      <td className="py-4 text-right font-medium text-slate-950">
+                      <td className="py-4 text-right font-semibold text-slate-950">
                         {position.priceStatus === "priced"
                           ? formatCurrency(position.marketValue)
                           : "—"}
@@ -764,12 +764,12 @@ export default function TransactionsPage({
 
         <SectionCard title="交易明細" description="依日期由新到舊排序。">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-left text-sm">
-              <thead>
-                <tr className="border-b border-stone-200 text-slate-500">
+              <table className="w-full min-w-[980px] whitespace-nowrap text-left text-sm">
+                <thead>
+                  <tr className="border-b border-stone-200 text-slate-500">
                   <th className="pb-3 font-medium">日期</th>
                   <th className="pb-3 font-medium">買進/賣出</th>
-                  <th className="pb-3 font-medium">代號</th>
+                    <th className="sticky left-0 z-[1] bg-white pb-3 font-medium">代號</th>
                   <th className="pb-3 font-medium">名稱</th>
                   <th className="pb-3 text-right font-medium">股數</th>
                   <th className="pb-3 text-right font-medium">成交價</th>
@@ -797,7 +797,7 @@ export default function TransactionsPage({
                         {getTypeLabel(transaction.type)}
                       </span>
                     </td>
-                    <td className="py-4 font-semibold text-slate-950">
+                    <td className="sticky left-0 z-[1] bg-white py-4 font-semibold text-slate-950">
                       {transaction.symbol}
                     </td>
                     <td className="py-4 text-slate-700">{transaction.name}</td>

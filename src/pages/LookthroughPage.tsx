@@ -125,7 +125,6 @@ export default function LookthroughPage({
             {portfolioSource.dataQualityNotes.map((note) => (
               <p key={note}>{note}</p>
             ))}
-            <p>使用每檔 ETF 已儲存的最新成分股資料。</p>
             {portfolioSource.missingPriceSymbols.length > 0 ? (
               <p>缺少價格：{portfolioSource.missingPriceSymbols.join("、")}</p>
             ) : null}
@@ -159,7 +158,7 @@ export default function LookthroughPage({
           <section className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-amber-950">
             <div className="grid gap-2 text-sm leading-6">
               <p>
-                部分 ETF 尚未匯入成分股，因此會暫時被視為單一持股。若要看到真正的底層股票曝險，請到「ETF 成分股」匯入資料。
+                部分 ETF 尚未匯入成分股，暫以單一標的計入。
               </p>
               {hasUnmapped00646 ? (
                 <p>
@@ -218,7 +217,7 @@ export default function LookthroughPage({
 
         <SectionCard
           title="底層股票曝險"
-          description="依投資組合佔比由高到低排列。來源欄會顯示直接持股或各 ETF 造成的曝險金額。"
+          description="依投組佔比由高到低排列。"
         >
           <div className="mb-4 grid gap-4 rounded-lg border border-stone-200 bg-stone-50 p-4">
             <div>
@@ -310,9 +309,7 @@ export default function LookthroughPage({
           {unmappedEtfHoldings.length > 0 ? (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800">
               <p className="font-semibold">尚未對應 ETF 成分股</p>
-              <p className="mt-2">
-                下列 ETF 目前沒有成分股資料，會暫時被當成單一標的計入穿透分析：
-              </p>
+              <p className="mt-2">下列 ETF 暫以單一標的計入：</p>
               <div className="mt-2 grid gap-1">
                 {unmappedEtfHoldings.map((holding) => (
                   <p key={holding.id}>
@@ -327,7 +324,7 @@ export default function LookthroughPage({
             <table className="w-full min-w-[980px] text-left text-sm">
               <thead>
                 <tr className="border-b border-stone-200 text-slate-500">
-                  <th className="pb-3 font-medium">股票代號</th>
+                  <th className="sticky left-0 z-[1] bg-white pb-3 pr-4 font-semibold text-slate-700">股票代號</th>
                   <th className="pb-3 font-medium">股票名稱</th>
                   <th className="pb-3 text-right font-medium">穿透後金額</th>
                   <th className="pb-3 text-right font-medium">投資組合佔比</th>
@@ -342,7 +339,7 @@ export default function LookthroughPage({
                     className="border-b border-stone-100 align-top last:border-0"
                     key={exposure.stockSymbol}
                   >
-                    <td className="py-4 font-semibold text-slate-950">
+                    <td className="sticky left-0 z-[1] bg-white py-4 pr-4 font-semibold text-slate-950">
                       {exposure.stockSymbol}
                     </td>
                     <td className="py-4 text-slate-700">
