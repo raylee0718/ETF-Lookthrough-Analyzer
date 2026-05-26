@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import PortfolioModeSwitch from "../components/PortfolioModeSwitch";
 import SectionCard from "../components/SectionCard";
 import StatCard from "../components/StatCard";
 import { useAppSettings } from "../hooks/useAppSettings";
@@ -119,8 +118,6 @@ export default function LookthroughPage({
             查看穿透後的台股 / 美股曝險與主要底層持股。
           </p>
         </header>
-
-        <PortfolioModeSwitch />
 
         <section className="rounded-lg border border-blue-200 bg-blue-50 p-5 text-blue-950">
           <h2 className="text-base font-semibold">{portfolioSource.modeLabel}</h2>

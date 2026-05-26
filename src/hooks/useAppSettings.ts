@@ -8,7 +8,7 @@ export const APP_SETTINGS_STORAGE_KEY = "etf-lookthrough-app-settings";
 const SETTINGS_CHANGED_EVENT = "etf-lookthrough-app-settings-changed";
 
 export const defaultAppSettings: AppSettings = {
-  portfolioDataSourceMode: "manual",
+  portfolioDataSourceMode: "transactions",
 };
 
 const isAppSettings = (value: unknown): value is AppSettings => {

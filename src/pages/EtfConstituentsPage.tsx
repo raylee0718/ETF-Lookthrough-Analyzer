@@ -1948,7 +1948,7 @@ export default function EtfConstituentsPage({
                         其他可測試的支援 ETF
                       </h3>
                       <p className="mt-1 text-sm leading-6 text-slate-600">
-                        下列 ETF 目前不在持股中，因此放在次要區域；需要時仍可手動測試與儲存。
+                        下列 ETF 目前不在持股中；需要時仍可手動測試與儲存。
                       </p>
                     </div>
                     <div className="grid gap-4 md:grid-cols-2">

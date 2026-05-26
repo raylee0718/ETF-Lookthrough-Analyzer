@@ -299,7 +299,7 @@ export default function TransactionsPage({
         <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
           <SectionCard
             title={editingId ? "編輯交易" : "新增交易"}
-            description="交易紀錄目前只用於計算持股，不會取代「我的持股」手動資料。"
+            description="新增買進或賣出後，系統會整理目前持股。"
           >
             <form className="grid gap-4" onSubmit={handleSubmit}>
               <label className="grid gap-2 text-sm font-medium text-slate-700">

@@ -24,7 +24,7 @@ type ActivePage =
   | "backup";
 
 const mvpNavItems: { key: ActivePage; label: string }[] = [
-  { key: "holdings", label: "設定我的持股" },
+  { key: "holdings", label: "我的持股" },
   { key: "constituents", label: "ETF 成分股" },
   { key: "lookthrough", label: "穿透分析" },
 ];
@@ -85,7 +85,7 @@ export default function App() {
               onClick={() => setShowAdvancedTools((current) => !current)}
               type="button"
             >
-              進階工具 {showAdvancedTools ? "收合" : "展開"}
+              其他工具 {showAdvancedTools ? "收合" : "展開"}
             </button>
 
             {showAdvancedTools ? (
@@ -121,7 +121,14 @@ export default function App() {
         />
       ) : null}
 
-      {activePage === "holdings" ? <HoldingsPage {...portfolioHoldings} /> : null}
+      {activePage === "holdings" ? (
+        <HoldingsPage
+          {...portfolioHoldings}
+          {...transactions}
+          priceRecords={priceRecords.priceRecords}
+          upsertLatestPrice={priceRecords.upsertLatestPrice}
+        />
+      ) : null}
 
       {activePage === "constituents" ? (
         <EtfConstituentsPage

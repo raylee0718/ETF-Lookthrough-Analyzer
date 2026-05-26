@@ -25,7 +25,9 @@ export function getPortfolioHoldingsForAnalysis({
   transactions,
   priceRecords,
 }: PortfolioSourceInput) {
-  if (mode === "manual") {
+  const shouldUseTransactions = transactions.length > 0 || mode === "transactions";
+
+  if (!shouldUseTransactions) {
     const totalMarketValue = manualHoldings.reduce(
       (sum, holding) => sum + holding.marketValue,
       0,
