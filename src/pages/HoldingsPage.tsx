@@ -107,7 +107,7 @@ export default function HoldingsPage({
 
   const handleReset = () => {
     const confirmed = window.confirm(
-      "這會覆蓋目前資料。建議先備份，是否繼續？",
+      "確定要清空所有持股嗎？此操作會刪除目前輸入的持股資料。",
     );
 
     if (confirmed) {
@@ -133,7 +133,7 @@ export default function HoldingsPage({
             onClick={handleReset}
             type="button"
           >
-            載入範例資料
+            清空全部持股
           </button>
         </header>
 

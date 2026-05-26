@@ -70,7 +70,7 @@ export function usePortfolioHoldings() {
   };
 
   const resetHoldings = () => {
-    setHoldings(mockPortfolioHoldings);
+    setHoldings([]);
   };
 
   return {

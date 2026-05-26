@@ -301,7 +301,6 @@ export default function PricesPage({
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <header className="flex flex-col gap-3 py-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm font-medium text-blue-700">Step 7 手動價格</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-normal text-slate-950">
               價格表
             </h1>
@@ -321,7 +320,7 @@ export default function PricesPage({
             這裡可以手動輸入最新價格，讓交易紀錄計算出的股數轉換為目前市值。之後可以再升級成自動抓取收盤價。
           </p>
           <p className="mt-2 text-sm leading-6">
-            價格表會在「交易紀錄模式」中用來計算目前市值。缺少價格時，系統會暫以投入成本估算。
+            價格表會用來計算目前市值。缺少價格時，系統會暫以投入成本估算。
           </p>
         </section>
 

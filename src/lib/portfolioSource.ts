@@ -16,7 +16,7 @@ type PortfolioSourceInput = {
 };
 
 export function getPortfolioDataSourceLabel(mode: PortfolioDataSourceMode) {
-  return mode === "manual" ? "手動持股模式" : "交易紀錄模式";
+  return mode === "manual" ? "我的持股" : "交易紀錄";
 }
 
 export function getPortfolioHoldingsForAnalysis({
@@ -33,7 +33,9 @@ export function getPortfolioHoldingsForAnalysis({
 
     return {
       holdingsForAnalysis: manualHoldings,
-      dataQualityNotes: ["目前使用手動持股模式，市值來自「我的持股」頁面。"],
+      dataQualityNotes: [
+        "根據目前持股與已儲存的 ETF 成分股資料，查看實際底層曝險。",
+      ],
       missingPriceSymbols: [] as string[],
       totalMarketValue,
       modeLabel: getPortfolioDataSourceLabel(mode),
@@ -51,7 +53,7 @@ export function getPortfolioHoldingsForAnalysis({
     .filter((position) => position.shares > 0 && position.priceStatus === "missing")
     .map((position) => position.symbol);
   const dataQualityNotes = [
-    "目前使用交易紀錄模式，市值由交易紀錄與價格表估算。",
+    "根據交易紀錄與價格表估算市值。",
   ];
 
   if (missingPriceSymbols.length > 0) {

@@ -144,7 +144,7 @@ export function useEtfConstituents() {
   const getLatestConstituents = () => getLatestConstituentsByEtf(constituents);
 
   const resetConstituents = () => {
-    setConstituents(mockEtfConstituents);
+    setConstituents([]);
   };
 
   return {

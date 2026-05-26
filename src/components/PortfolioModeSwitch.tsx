@@ -8,12 +8,12 @@ const modeOptions: {
 }[] = [
   {
     mode: "manual",
-    label: "手動持股模式",
+    label: "我的持股",
     description: "適合快速輸入目前市值",
   },
   {
     mode: "transactions",
-    label: "交易紀錄模式",
+    label: "交易紀錄",
     description: "適合根據買賣紀錄與價格表估算市值",
   },
 ];
@@ -32,8 +32,8 @@ export default function PortfolioModeSwitch() {
             目前選擇：
             <span className="font-medium text-blue-700">
               {settings.portfolioDataSourceMode === "manual"
-                ? "手動持股模式"
-                : "交易紀錄模式"}
+                ? "我的持股"
+                : "交易紀錄"}
             </span>
           </p>
         </div>

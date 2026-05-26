@@ -136,7 +136,7 @@ export default function BackupPage({
     }
 
     restoreBackupToLocalStorage(pendingBackup);
-    setImportSuccess("備份已寫入 localStorage。請重新整理頁面以載入匯入後的資料。");
+    setImportSuccess("備份已匯入。請重新整理頁面以載入匯入後的資料。");
   };
 
   const csvExports = [
@@ -188,7 +188,6 @@ export default function BackupPage({
     <main className="min-h-screen bg-stone-100 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <header className="py-3">
-          <p className="text-sm font-medium text-blue-700">Step 9 備份與匯出</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-normal text-slate-950">
             備份匯出
           </h1>
@@ -198,7 +197,7 @@ export default function BackupPage({
         </header>
 
         <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950 sm:p-5">
-          部署、換瀏覽器、換手機或清除瀏覽資料前，請先下載完整 JSON 備份。此工具使用 localStorage，不會自動同步不同裝置。
+          部署、換瀏覽器、換手機或清除瀏覽資料前，請先下載完整 JSON 備份。資料不會自動同步不同裝置。
         </section>
 
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -227,7 +226,7 @@ export default function BackupPage({
         <div className="grid gap-6 lg:grid-cols-2">
           <SectionCard
             title="JSON 完整備份"
-            description="包含所有 localStorage 資料與目前 App 設定。"
+            description="包含所有本機資料與目前 App 設定。"
           >
             <div className="grid gap-4">
               <button

@@ -57,7 +57,6 @@ export default function OverlapPage({ constituents }: OverlapPageProps) {
     <main className="min-h-screen bg-stone-100 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <header className="py-3">
-          <p className="text-sm font-medium text-blue-700">Step 5 ETF 重疊分析</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-normal text-slate-950">
             ETF 重疊
           </h1>

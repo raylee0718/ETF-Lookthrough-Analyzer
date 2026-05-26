@@ -236,7 +236,6 @@ export default function TransactionsPage({
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <header className="flex flex-col gap-3 py-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm font-medium text-blue-700">Step 7 交易與市值</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-normal text-slate-950">
               交易紀錄
             </h1>
@@ -256,7 +255,7 @@ export default function TransactionsPage({
             這裡可以記錄買進與賣出，系統會根據交易紀錄計算目前持有股數、平均成本與已實現損益。現階段價格由手動價格表提供，尚未自動抓取即時或收盤價。
           </p>
           <p className="mt-2 text-sm leading-6">
-            交易紀錄可用於「交易紀錄模式」。若要讓穿透分析反映最新市值，請同時維護價格表。
+            若要讓穿透分析反映最新市值，請同時維護價格表。
           </p>
         </section>
 

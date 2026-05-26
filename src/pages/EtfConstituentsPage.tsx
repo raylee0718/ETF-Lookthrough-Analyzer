@@ -987,7 +987,7 @@ export default function EtfConstituentsPage({
 
   const handleReset = () => {
     const confirmed = window.confirm(
-      "這會覆蓋目前資料。建議先備份，是否繼續？",
+      "確定要清空所有 ETF 成分股資料嗎？此操作會刪除目前儲存的成分股。",
     );
 
     if (confirmed) {
@@ -1529,7 +1529,7 @@ export default function EtfConstituentsPage({
             onClick={handleReset}
             type="button"
           >
-            載入範例資料
+            清空成分股
           </button>
         </header>
 

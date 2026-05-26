@@ -177,7 +177,6 @@ export default function Dashboard({
     <main className="min-h-screen bg-stone-100 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <header className="py-3">
-          <p className="text-sm font-medium text-blue-700">Step 8 資料來源切換</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-normal text-slate-950">
             ETF Lookthrough 投資組合分析
           </h1>
@@ -198,15 +197,15 @@ export default function Dashboard({
                 每日更新與重新分析
               </h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                按下更新後，系統會嘗試抓取可用的收盤價資料，寫入價格表，並用最新價格重新計算交易紀錄模式下的市值與穿透曝險。
+                按下更新後，系統會嘗試抓取可用的收盤價資料，寫入價格表，並用最新價格重新計算市值與穿透曝險。
               </p>
               <p className="mt-2 text-sm font-medium text-slate-700">
                 上次更新：{formatRefreshTime(lastRefreshAt)}
               </p>
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 {isTransactionMode
-                  ? "目前為交易紀錄模式，儀表板已使用最新價格重新估算市值。"
-                  : "目前為手動持股模式，價格更新主要影響交易紀錄模式。若要用最新價格估算市值，請切換到交易紀錄模式。"}
+                  ? "目前使用交易紀錄，儀表板已使用最新價格重新估算市值。"
+                  : "目前使用我的持股。價格更新主要影響交易紀錄。"}
               </p>
             </div>
             <div className="flex shrink-0 flex-col gap-2 sm:flex-row lg:flex-col">
@@ -318,7 +317,7 @@ export default function Dashboard({
             {settings.portfolioDataSourceMode === "transactions" &&
             transactions.length === 0 ? (
               <p>
-                目前選擇交易紀錄模式，但尚未建立交易紀錄。請先到「交易紀錄」新增買進或賣出資料，或切回手動持股模式。
+                目前選擇交易紀錄，但尚未建立交易紀錄。請先新增買進或賣出資料，或切回我的持股。
               </p>
             ) : null}
             {portfolioSource.missingPriceSymbols.length > 0 ? (
@@ -359,7 +358,7 @@ export default function Dashboard({
             <StatCard
               label="交易推算持股"
               value={`${transactionPositions.filter((position) => position.shares > 0).length} 檔`}
-              helperText="交易紀錄模式可使用"
+              helperText="交易紀錄可使用"
             />
             <StatCard
               label="已有最新價格"
@@ -369,7 +368,7 @@ export default function Dashboard({
             <StatCard
               label="缺少價格"
               value={`${portfolioSource.missingPriceSymbols.length} 檔`}
-              helperText="交易紀錄模式影響市值精準度"
+              helperText="會影響市值精準度"
             />
           </div>
           {settings.portfolioDataSourceMode === "transactions" ? (
