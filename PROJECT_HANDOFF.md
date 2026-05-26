@@ -430,3 +430,7 @@ Step 53 新增 `/api/market-prices?symbols=...` serverless endpoint 與「我的
 ## Step 55 - Holdings Page Layout Refinement
 
 Step 55 將「我的持股」頁改為專注投組摘要、價格更新與目前持股表。新增 / 編輯 / 檢視交易回到「交易紀錄」頁作為主要入口，持股頁只保留「新增交易」按鈕並導向該頁，避免交易表單與寬持股表並排造成擁擠。此步驟只調整 UI layout 與少量文案，不改交易計算、價格抓取、ETF constituents proxy/parser 或缺價處理規則。
+
+## Step 57 - Pasted Transaction Import
+
+Step 57 在「交易紀錄」頁加入「貼上交易紀錄」區塊。使用者可貼上每列一筆的簡單 CSV-like 交易資料，欄位順序為日期、代號、名稱、類別、買賣、股數、成交價、手續費、交易稅、備註；標題列可有可無。預覽會列出有效交易與錯誤訊息，確認後只追加有效交易，錯誤列留在預覽中供修正。名稱與類別為選填，日期需為 `YYYY-MM-DD`，買賣只接受 `買進` / `賣出`，空白手續費與交易稅視為 0。此步驟未加入券商 statement parser、OCR、券商連線或重複偵測，也未改動 transaction calculation、price fetching、ETF fetching/parsing 或 lookthrough logic。

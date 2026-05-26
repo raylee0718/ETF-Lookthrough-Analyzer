@@ -41,7 +41,7 @@ const emptyForm: TransactionInput = {
 
 const transactionImportSample = [
   "日期,代號,名稱,類別,買賣,股數,成交價,手續費,交易稅,備註",
-  "2026-05-20,0050,元大台灣50,台股核心 ETF,買進,10,190,1,0,範例",
+  "2026-05-20,0050,元大台灣50,台股核心 ETF,買進,10,190,1,0,",
 ].join("\n");
 
 type TransactionsPageProps = {
@@ -73,7 +73,6 @@ export default function TransactionsPage({
   const [importRows, setImportRows] = useState<TransactionImportRow[]>([]);
   const [importError, setImportError] = useState("");
   const [importResult, setImportResult] = useState("");
-  const [skipDuplicates, setSkipDuplicates] = useState(true);
 
   const { positions, warnings } = useMemo(
     () => calculatePositionsFromTransactions(transactions),
@@ -169,56 +168,38 @@ export default function TransactionsPage({
   };
 
   const handleParseImportText = (text = importText) => {
-    const result = parseTransactionsImportText(text, transactions);
+    const result = parseTransactionsImportText(text);
 
     setImportRows(result.rows);
     setImportError(result.error ?? "");
     setImportResult("");
   };
 
-  const handleImportFile = async (file: File | undefined) => {
-    if (!file) return;
-
-    const text = await file.text();
-    setImportText(text);
-    handleParseImportText(text);
-  };
-
   const handleClearImportPreview = () => {
+    setImportText("");
     setImportRows([]);
     setImportError("");
     setImportResult("");
   };
 
-  const handleCopySample = async () => {
-    await navigator.clipboard.writeText(transactionImportSample);
-    setImportResult("已複製範例格式。");
-  };
-
   const handleImportValidRows = () => {
     const validRows = importRows.filter((row) => row.isValid);
-    const rowsToImport = validRows.filter(
-      (row) => !skipDuplicates || !row.isDuplicate,
-    );
     const skippedInvalidCount = importRows.filter((row) => !row.isValid).length;
-    const skippedDuplicateCount = skipDuplicates
-      ? validRows.filter((row) => row.isDuplicate).length
-      : 0;
 
-    if (rowsToImport.length === 0) {
+    if (validRows.length === 0) {
       setImportResult("沒有可匯入的有效交易。");
       return;
     }
 
     const confirmed = window.confirm(
-      `即將新增 ${rowsToImport.length} 筆交易紀錄，是否確認匯入？`,
+      `即將新增 ${validRows.length} 筆交易紀錄，是否確認匯入？`,
     );
 
     if (!confirmed) return;
 
-    rowsToImport.forEach((row) => addTransaction(row.input));
+    validRows.forEach((row) => addTransaction(row.input));
     setImportResult(
-      `已匯入 ${rowsToImport.length} 筆；略過錯誤 ${skippedInvalidCount} 筆；略過疑似重複 ${skippedDuplicateCount} 筆。`,
+      `已匯入 ${validRows.length} 筆；略過錯誤 ${skippedInvalidCount} 筆。`,
     );
   };
 
@@ -226,7 +207,6 @@ export default function TransactionsPage({
     () => ({
       validCount: importRows.filter((row) => row.isValid).length,
       invalidCount: importRows.filter((row) => !row.isValid).length,
-      duplicateCount: importRows.filter((row) => row.isDuplicate).length,
     }),
     [importRows],
   );
@@ -580,63 +560,35 @@ export default function TransactionsPage({
         </div>
 
         <SectionCard
-          title="匯入交易紀錄"
-          description="貼上 CSV 或從 Excel 複製的表格資料，先預覽與檢查後再追加到現有交易。"
+          title="貼上交易紀錄"
+          description="可貼上多筆交易，每列一筆，欄位順序：日期、代號、名稱、類別、買賣、股數、成交價、手續費、交易稅、備註。"
         >
           <div className="grid gap-5">
-            <div className="grid gap-4 lg:grid-cols-[1fr_0.8fr]">
-              <label className="grid gap-2 text-sm font-medium text-slate-700">
-                貼上 CSV / 表格資料
-                <textarea
-                  className="min-h-44 rounded-lg border border-stone-300 bg-white px-3 py-2.5 font-mono text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  onChange={(event) => setImportText(event.target.value)}
-                  placeholder={transactionImportSample}
-                  value={importText}
-                />
-              </label>
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              貼上內容
+              <textarea
+                className="min-h-40 rounded-lg border border-stone-300 bg-white px-3 py-2.5 font-mono text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                onChange={(event) => setImportText(event.target.value)}
+                placeholder={transactionImportSample}
+                value={importText}
+              />
+            </label>
 
-              <div className="grid gap-4 rounded-lg border border-stone-200 bg-stone-50 p-4">
-                <label className="grid gap-2 text-sm font-medium text-slate-700">
-                  上傳 .csv 檔案
-                  <input
-                    accept=".csv,text/csv"
-                    className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-blue-700"
-                    onChange={(event) => void handleImportFile(event.target.files?.[0])}
-                    type="file"
-                  />
-                </label>
-
-                <div className="grid gap-2">
-                  <p className="text-sm font-medium text-slate-700">範例格式</p>
-                  <pre className="overflow-x-auto rounded-lg border border-stone-200 bg-white p-3 text-xs leading-5 text-slate-700">
-                    {transactionImportSample}
-                  </pre>
-                  <button
-                    className="w-fit rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-stone-50"
-                    onClick={() => void handleCopySample()}
-                    type="button"
-                  >
-                    複製範例格式
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <div className="flex flex-col gap-3 sm:flex-row">
                 <button
                   className="rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
                   onClick={() => handleParseImportText()}
                   type="button"
                 >
-                  解析資料
+                  預覽匯入
                 </button>
                 <button
                   className="rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-stone-50"
                   onClick={handleClearImportPreview}
                   type="button"
                 >
-                  清除預覽
+                  清除
                 </button>
                 <button
                   className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-stone-300"
@@ -644,19 +596,9 @@ export default function TransactionsPage({
                   onClick={handleImportValidRows}
                   type="button"
                 >
-                  匯入有效交易
+                  確認匯入
                 </button>
               </div>
-
-              <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                <input
-                  checked={skipDuplicates}
-                  className="h-4 w-4 rounded border-stone-300 text-blue-700 focus:ring-blue-500"
-                  onChange={(event) => setSkipDuplicates(event.target.checked)}
-                  type="checkbox"
-                />
-                略過疑似重複交易
-              </label>
             </div>
 
             {importError ? (
@@ -667,10 +609,9 @@ export default function TransactionsPage({
 
             {importRows.length > 0 ? (
               <div className="grid gap-3">
-                <div className="grid gap-2 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950 sm:grid-cols-3">
+                <div className="grid gap-2 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950 sm:grid-cols-2">
                   <p>有效：{importSummary.validCount} 筆</p>
                   <p>錯誤：{importSummary.invalidCount} 筆</p>
-                  <p>疑似重複：{importSummary.duplicateCount} 筆</p>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -694,16 +635,10 @@ export default function TransactionsPage({
                     </thead>
                     <tbody>
                       {importRows.map((row) => {
-                        const statusLabel = !row.isValid
-                          ? "錯誤"
-                          : row.isDuplicate
-                            ? "疑似重複"
-                            : "有效";
+                        const statusLabel = row.isValid ? "有效" : "錯誤";
                         const statusClass = !row.isValid
                           ? "bg-red-50 text-red-700 ring-red-200"
-                          : row.isDuplicate
-                            ? "bg-amber-50 text-amber-700 ring-amber-200"
-                            : "bg-emerald-50 text-emerald-700 ring-emerald-200";
+                          : "bg-emerald-50 text-emerald-700 ring-emerald-200";
 
                         return (
                           <tr

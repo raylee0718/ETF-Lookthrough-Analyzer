@@ -8,7 +8,6 @@ export type TransactionImportRow = {
   input: TransactionImportInput;
   errors: string[];
   isValid: boolean;
-  isDuplicate: boolean;
 };
 
 export type TransactionImportResult = {
@@ -42,25 +41,54 @@ const headerAliases = new Map<string, keyof TransactionImportInput>([
 const requiredFields: Array<keyof TransactionImportInput> = [
   "date",
   "symbol",
-  "name",
-  "category",
   "type",
   "shares",
   "price",
 ];
 
+const fixedOrderFields: Array<keyof TransactionImportInput> = [
+  "date",
+  "symbol",
+  "name",
+  "category",
+  "type",
+  "shares",
+  "price",
+  "fee",
+  "tax",
+  "note",
+];
+
 const parseTransactionType = (value: string): TransactionType | undefined => {
   const normalizedValue = value.trim();
 
-  if (["買進", "買", "Buy", "buy", "B"].includes(normalizedValue)) {
+  if (normalizedValue === "買進") {
     return "buy";
   }
 
-  if (["賣出", "賣", "Sell", "sell", "S"].includes(normalizedValue)) {
+  if (normalizedValue === "賣出") {
     return "sell";
   }
 
   return undefined;
+};
+
+const isValidDate = (value: string) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+
+  if (!match) {
+    return false;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const parsedDate = new Date(Date.UTC(year, month - 1, day));
+
+  return (
+    !Number.isNaN(parsedDate.getTime()) &&
+    parsedDate.toISOString().slice(0, 10) === value
+  );
 };
 
 const parseNumber = (value: string) => {
@@ -129,32 +157,28 @@ const parseDelimitedText = (text: string) => {
 const mapHeaders = (headers: string[]) =>
   headers.map((header) => headerAliases.get(header.trim()) ?? null);
 
-const createDuplicateKey = (transaction: Pick<TransactionRecord, "date" | "symbol" | "type" | "shares" | "price">) =>
-  [
-    transaction.date.trim(),
-    transaction.symbol.trim().toUpperCase(),
-    transaction.type,
-    transaction.shares,
-    transaction.price,
-  ].join("|");
+const isHeaderRow = (row: string[]) => {
+  const mappedHeaders = mapHeaders(row);
+  return mappedHeaders.some((field) => field !== null);
+};
 
-export const parseTransactionsImportText = (
-  text: string,
-  existingTransactions: TransactionRecord[],
-): TransactionImportResult => {
+export const parseTransactionsImportText = (text: string): TransactionImportResult => {
   const parsedText = parseDelimitedText(text);
 
   if (parsedText.rows.length === 0) {
     return { rows: [], error: "請先貼上 CSV 或表格資料。" };
   }
 
-  const [headerRow, ...dataRows] = parsedText.rows;
-  const mappedHeaders = mapHeaders(headerRow);
+  const [firstRow, ...remainingRows] = parsedText.rows;
+  const hasHeader = isHeaderRow(firstRow);
+  const mappedHeaders = hasHeader
+    ? mapHeaders(firstRow)
+    : fixedOrderFields;
+  const dataRows = hasHeader ? remainingRows : parsedText.rows;
   const missingFields = requiredFields.filter((field) => !mappedHeaders.includes(field));
-  const existingDuplicateKeys = new Set(existingTransactions.map(createDuplicateKey));
 
-  if (mappedHeaders.every((field) => field === null)) {
-    return { rows: [], error: "找不到可辨識的標題列，請確認第一列包含日期、代號、名稱等欄位。" };
+  if (dataRows.length === 0) {
+    return { rows: [], error: "沒有找到可匯入的交易資料。" };
   }
 
   const rows = dataRows.map((dataRow, index) => {
@@ -188,11 +212,13 @@ export const parseTransactionsImportText = (
       errors.push(`缺少必要欄位：${labels[field]}`);
     });
 
-    if (!raw.date?.trim()) errors.push("日期必填");
+    if (!raw.date?.trim()) {
+      errors.push("日期必填");
+    } else if (!isValidDate(raw.date.trim())) {
+      errors.push("日期格式必須是 YYYY-MM-DD");
+    }
     if (!raw.symbol?.trim()) errors.push("代號必填");
-    if (!raw.name?.trim()) errors.push("名稱必填");
-    if (!raw.category?.trim()) errors.push("類別必填");
-    if (!type) errors.push("買賣必須是買進/買/Buy/B 或賣出/賣/Sell/S");
+    if (!type) errors.push("買賣必須是買進或賣出");
     if (shares === undefined || Number.isNaN(shares) || shares <= 0) {
       errors.push("股數必須大於 0");
     }
@@ -219,18 +245,15 @@ export const parseTransactionsImportText = (
       note: raw.note?.trim() || undefined,
     };
     const isValid = errors.length === 0;
-    const isDuplicate = isValid && existingDuplicateKeys.has(createDuplicateKey(input));
 
     return {
-      rowNumber: index + 2,
+      rowNumber: hasHeader ? index + 2 : index + 1,
       raw,
       input,
       errors,
       isValid,
-      isDuplicate,
     };
   });
 
   return { rows };
 };
-
