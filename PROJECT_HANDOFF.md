@@ -422,3 +422,7 @@ Step 51 簡化主要頁面文案，只保留能幫助使用者完成操作、避
 ## Step 52 - Transaction Workflow QA Refinements
 
 Step 52 確認交易紀錄實用流程：買進會建立目前持股，多筆買進使用平均成本法，賣出會扣減剩餘股數，完全出清部位會從「目前持股」表隱藏但交易紀錄仍保留；若賣出超過目前股數，`positions.ts` 會回傳警示。使用者可在「目前持股」表手動輸入目前價格，市值與投組佔比會更新。若缺少目前價格，`prices.ts` 不再用投入成本當作市值，持股頁會把市值、損益、報酬率與投組佔比顯示為待更新；`portfolioSource.ts` 會把缺價持股排除於穿透分析並回傳提醒，但 ETF 成分股更新建議仍可依剩餘股數辨識目前持有 ETF。未加入任何自動價格 API、績效圖或交易日誌功能。
+
+## Step 53 - Taiwan Close Price Update
+
+Step 53 新增 `/api/market-prices?symbols=...` serverless endpoint 與「我的持股」頁的「更新目前價格」按鈕。前端只送出目前仍持有的 symbol 清單，不送交易明細；API 會抓取 TWSE `STOCK_DAY_ALL` 與 TPEx `tpex_mainboard_daily_close_quotes` 官方 OpenAPI，整理成 `{ symbol, price, priceDate, source, status }` 後只回傳請求的代號。有效價格會透過 `upsertLatestPrice` 寫入本機 price records，立即更新市值、投組佔比、未實現損益與穿透分析。失敗或缺價的代號不會覆蓋既有有效價格，也不會用 0 或投入成本補值。此功能是最近可用收盤價，不是即時報價；沒有加入背景排程、績效圖或 00646 底層美股價格抓取。

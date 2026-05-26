@@ -5,11 +5,13 @@ import type { HoldingInput } from "../hooks/usePortfolioHoldings";
 import type { PriceRecordInput } from "../hooks/usePriceRecords";
 import type { TransactionInput } from "../hooks/useTransactions";
 import { formatCurrency, formatPercent, formatShares } from "../lib/format";
+import { fetchMarketPricesForSymbols } from "../lib/marketPriceClient";
 import { calculatePositionsFromTransactions } from "../lib/positions";
 import {
   calculatePositionsWithMarketValue,
   getLatestPriceMap,
 } from "../lib/prices";
+import type { MarketPricesResponse } from "../types/marketPrices";
 import type { PortfolioHolding } from "../types/portfolio";
 import type { PriceRecord } from "../types/prices";
 import type { TransactionRecord } from "../types/transactions";
@@ -97,6 +99,10 @@ export default function HoldingsPage({
   const [editingManualId, setEditingManualId] = useState<string | null>(null);
   const [manualErrors, setManualErrors] = useState<ManualFormErrors>({});
   const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({});
+  const [priceUpdateLoading, setPriceUpdateLoading] = useState(false);
+  const [priceUpdateResult, setPriceUpdateResult] =
+    useState<MarketPricesResponse | null>(null);
+  const [priceUpdateMessage, setPriceUpdateMessage] = useState("");
 
   const { positions, warnings } = useMemo(
     () => calculatePositionsFromTransactions(transactions),
@@ -303,6 +309,74 @@ export default function HoldingsPage({
     }
   };
 
+  const handleUpdateCurrentPrices = async () => {
+    const symbols = activePositions.map((position) => position.symbol);
+
+    if (symbols.length === 0) {
+      setPriceUpdateMessage("目前沒有可更新價格的持股。");
+      setPriceUpdateResult(null);
+      return;
+    }
+
+    setPriceUpdateLoading(true);
+    setPriceUpdateMessage("");
+    setPriceUpdateResult(null);
+
+    try {
+      const result = await fetchMarketPricesForSymbols({ symbols });
+      const positionNameMap = new Map(
+        activePositions.map((position) => [
+          position.symbol.toUpperCase(),
+          position.name,
+        ]),
+      );
+      const validPrices = result.prices.filter(
+        (price) =>
+          price.status === "ok" &&
+          Number.isFinite(price.price) &&
+          (price.price ?? 0) > 0 &&
+          Boolean(price.priceDate),
+      );
+
+      validPrices.forEach((price) => {
+        upsertLatestPrice({
+          symbol: price.symbol,
+          name: price.name ?? positionNameMap.get(price.symbol) ?? price.symbol,
+          price: price.price ?? 0,
+          date: price.priceDate ?? getToday(),
+          sourceType: "provider",
+          source: price.source ?? "官方收盤價",
+          fetchedAt: result.fetchedAt,
+          note: "最近可用收盤價，非即時報價",
+        });
+      });
+
+      if (validPrices.length > 0) {
+        setPriceDrafts((current) => {
+          const nextDrafts = { ...current };
+          validPrices.forEach((price) => {
+            delete nextDrafts[price.symbol];
+          });
+          return nextDrafts;
+        });
+      }
+
+      const failedCount = result.prices.length - validPrices.length;
+      setPriceUpdateResult(result);
+      setPriceUpdateMessage(
+        failedCount > 0
+          ? `已更新 ${validPrices.length} 檔，${failedCount} 檔待更新。`
+          : `已更新 ${validPrices.length} 檔目前價格。`,
+      );
+    } catch (error) {
+      setPriceUpdateMessage(
+        error instanceof Error ? error.message : "價格更新失敗，請稍後再試。",
+      );
+    } finally {
+      setPriceUpdateLoading(false);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-stone-100 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
@@ -315,17 +389,74 @@ export default function HoldingsPage({
               記錄買賣交易，系統會自動整理目前持股。
             </p>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-              目前價格可先手動更新，之後可接入收盤價。
+              目前價格可手動更新，也可抓最近收盤價。
             </p>
           </div>
-          <button
-            className="w-full rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700 shadow-sm transition hover:bg-red-100 sm:w-auto"
-            onClick={handleClearAll}
-            type="button"
-          >
-            清空全部持股
-          </button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button
+              className="w-full rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-stone-300 sm:w-auto"
+              disabled={priceUpdateLoading || activePositions.length === 0}
+              onClick={() => void handleUpdateCurrentPrices()}
+              type="button"
+            >
+              {priceUpdateLoading ? "更新中..." : "更新目前價格"}
+            </button>
+            <button
+              className="w-full rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700 shadow-sm transition hover:bg-red-100 sm:w-auto"
+              onClick={handleClearAll}
+              type="button"
+            >
+              清空全部持股
+            </button>
+          </div>
         </header>
+
+        <section className="rounded-lg border border-stone-200 bg-white p-5 text-sm leading-6 text-slate-700 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="font-medium text-slate-950">價格為最近可用收盤價，非即時報價。</p>
+              <p className="mt-1 text-slate-500">
+                只會更新目前持有標的的價格；手動輸入仍可覆蓋或補充。
+              </p>
+            </div>
+            {priceUpdateMessage ? (
+              <p className="rounded-lg bg-stone-100 px-3 py-2 text-slate-700">
+                {priceUpdateMessage}
+              </p>
+            ) : null}
+          </div>
+          {priceUpdateResult ? (
+            <div className="mt-4 grid gap-2">
+              <p className="text-slate-500">
+                抓取時間：{new Date(priceUpdateResult.fetchedAt).toLocaleString("zh-TW")}
+              </p>
+              {priceUpdateResult.prices.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {priceUpdateResult.prices.map((price) => (
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${
+                        price.status === "ok"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-amber-50 text-amber-700"
+                      }`}
+                      key={price.symbol}
+                    >
+                      {price.symbol}：
+                      {price.status === "ok" && price.price
+                        ? `${price.price}（${price.priceDate}）`
+                        : "待更新"}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              {priceUpdateResult.warnings.length > 0 ? (
+                <p className="text-amber-700">
+                  {priceUpdateResult.warnings.join(" ")}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
 
         <section className="grid gap-4 sm:grid-cols-3">
           <StatCard
