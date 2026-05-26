@@ -418,3 +418,7 @@ Step 51 簡化主要頁面文案，只保留能幫助使用者完成操作、避
 ## Step 51 - Transaction-Based Holdings Workflow
 
 後續 Step 51 將交易紀錄提升為主要持股維護方式。`HoldingsPage` 現在可新增 / 編輯買進與賣出交易，並用 `calculatePositionsFromTransactions` 與 `calculatePositionsWithMarketValue` 整理目前持股，顯示剩餘股數、平均成本、投入成本、可手動編輯的目前價格、目前市值與投組佔比。`portfolioSource.ts` 會優先使用交易紀錄計算出的 holdings 作為 lookthrough input；若沒有交易紀錄，才回到手動持股 fallback。此步驟未加入自動價格抓取，也未改動 ETF 成分股 fetching / parsing。
+
+## Step 52 - Transaction Workflow QA Refinements
+
+Step 52 確認交易紀錄實用流程：買進會建立目前持股，多筆買進使用平均成本法，賣出會扣減剩餘股數，完全出清部位會從「目前持股」表隱藏但交易紀錄仍保留；若賣出超過目前股數，`positions.ts` 會回傳警示。使用者可在「目前持股」表手動輸入目前價格，市值與投組佔比會更新。`App.tsx` 會把交易紀錄整理出的 holdings 傳給 ETF 成分股頁與穿透分析；`portfolioSource.ts` 只在沒有交易紀錄時使用手動持股 fallback。未加入任何自動價格 API、績效圖或交易日誌功能。

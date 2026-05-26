@@ -4,6 +4,10 @@ import { usePortfolioHoldings } from "./hooks/usePortfolioHoldings";
 import { usePriceRecords } from "./hooks/usePriceRecords";
 import { useTransactions } from "./hooks/useTransactions";
 import { calculatePositionsFromTransactions } from "./lib/positions";
+import {
+  calculatePositionsWithMarketValue,
+  convertPricedPositionsToPortfolioHoldings,
+} from "./lib/prices";
 import BackupPage from "./pages/BackupPage";
 import Dashboard from "./pages/Dashboard";
 import EtfConstituentsPage from "./pages/EtfConstituentsPage";
@@ -47,6 +51,25 @@ export default function App() {
   const transactionPositions = useMemo(
     () => calculatePositionsFromTransactions(transactions.transactions).positions,
     [transactions.transactions],
+  );
+  const transactionPricedPositions = useMemo(
+    () =>
+      calculatePositionsWithMarketValue(
+        transactionPositions,
+        priceRecords.priceRecords,
+      ),
+    [priceRecords.priceRecords, transactionPositions],
+  );
+  const holdingsForWorkflow = useMemo(
+    () =>
+      transactions.transactions.length > 0
+        ? convertPricedPositionsToPortfolioHoldings(transactionPricedPositions)
+        : portfolioHoldings.holdings,
+    [
+      portfolioHoldings.holdings,
+      transactionPricedPositions,
+      transactions.transactions.length,
+    ],
   );
 
   return (
@@ -132,7 +155,7 @@ export default function App() {
 
       {activePage === "constituents" ? (
         <EtfConstituentsPage
-          holdings={portfolioHoldings.holdings}
+          holdings={holdingsForWorkflow}
           {...etfConstituents}
         />
       ) : null}
@@ -140,7 +163,7 @@ export default function App() {
       {activePage === "lookthrough" ? (
         <LookthroughPage
           constituents={etfConstituents.constituents}
-          holdings={portfolioHoldings.holdings}
+          holdings={holdingsForWorkflow}
           priceRecords={priceRecords.priceRecords}
           transactions={transactions.transactions}
         />
