@@ -162,6 +162,10 @@ export default function App() {
         <HoldingsPage
           {...portfolioHoldings}
           {...transactions}
+          onNavigateToTransactions={() => {
+            setShowAdvancedTools(true);
+            setActivePage("transactions");
+          }}
           priceRecords={priceRecords.priceRecords}
           upsertLatestPrice={priceRecords.upsertLatestPrice}
         />

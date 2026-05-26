@@ -429,4 +429,4 @@ Step 53 新增 `/api/market-prices?symbols=...` serverless endpoint 與「我的
 
 ## Step 55 - Holdings Page Layout Refinement
 
-Step 55 將「我的持股」頁的目前持股表與新增交易表單拆成上下分區。投組摘要、價格更新與目前持股表維持在頁面前段，交易表單改為全寬卡片並使用最多三欄的 responsive grid，避免和寬表格並排造成擁擠。此步驟只調整 UI layout 與少量文案，不改交易計算、價格抓取、ETF constituents proxy/parser 或缺價處理規則。
+Step 55 將「我的持股」頁改為專注投組摘要、價格更新與目前持股表。新增 / 編輯 / 檢視交易回到「交易紀錄」頁作為主要入口，持股頁只保留「新增交易」按鈕並導向該頁，避免交易表單與寬持股表並排造成擁擠。此步驟只調整 UI layout 與少量文案，不改交易計算、價格抓取、ETF constituents proxy/parser 或缺價處理規則。

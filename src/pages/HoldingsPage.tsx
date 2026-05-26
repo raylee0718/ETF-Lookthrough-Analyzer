@@ -3,7 +3,6 @@ import SectionCard from "../components/SectionCard";
 import StatCard from "../components/StatCard";
 import type { HoldingInput } from "../hooks/usePortfolioHoldings";
 import type { PriceRecordInput } from "../hooks/usePriceRecords";
-import type { TransactionInput } from "../hooks/useTransactions";
 import { formatCurrency, formatPercent, formatShares } from "../lib/format";
 import { fetchMarketPricesForSymbols } from "../lib/marketPriceClient";
 import { calculatePositionsFromTransactions } from "../lib/positions";
@@ -26,19 +25,6 @@ const categoryOptions = [
   "其他",
 ];
 
-const emptyTransactionForm: TransactionInput = {
-  date: "",
-  symbol: "",
-  name: "",
-  category: "",
-  type: "buy",
-  shares: 0,
-  price: 0,
-  fee: 0,
-  tax: 0,
-  note: "",
-};
-
 const emptyManualForm: HoldingInput = {
   symbol: "",
   name: "",
@@ -54,15 +40,12 @@ type HoldingsPageProps = {
   deleteHolding: (id: string) => void;
   resetHoldings: () => void;
   transactions: TransactionRecord[];
-  addTransaction: (input: TransactionInput) => void;
-  updateTransaction: (id: string, input: TransactionInput) => void;
-  deleteTransaction: (id: string) => void;
   resetTransactions: () => void;
   priceRecords: PriceRecord[];
   upsertLatestPrice: (input: PriceRecordInput) => void;
+  onNavigateToTransactions: () => void;
 };
 
-type TransactionFormErrors = Partial<Record<keyof TransactionInput, string>>;
 type ManualFormErrors = Partial<Record<keyof HoldingInput, string>>;
 
 const getToday = () => {
@@ -71,9 +54,6 @@ const getToday = () => {
   return now.toISOString().slice(0, 10);
 };
 
-const getTransactionTypeLabel = (type: TransactionRecord["type"]) =>
-  type === "buy" ? "買進" : "賣出";
-
 export default function HoldingsPage({
   holdings,
   addHolding,
@@ -81,20 +61,11 @@ export default function HoldingsPage({
   deleteHolding,
   resetHoldings,
   transactions,
-  addTransaction,
-  updateTransaction,
-  deleteTransaction,
   resetTransactions,
   priceRecords,
   upsertLatestPrice,
+  onNavigateToTransactions,
 }: HoldingsPageProps) {
-  const [transactionForm, setTransactionForm] =
-    useState<TransactionInput>(emptyTransactionForm);
-  const [editingTransactionId, setEditingTransactionId] = useState<string | null>(
-    null,
-  );
-  const [transactionErrors, setTransactionErrors] =
-    useState<TransactionFormErrors>({});
   const [manualForm, setManualForm] = useState<HoldingInput>(emptyManualForm);
   const [editingManualId, setEditingManualId] = useState<string | null>(null);
   const [manualErrors, setManualErrors] = useState<ManualFormErrors>({});
@@ -139,30 +110,6 @@ export default function HoldingsPage({
     [holdings],
   );
 
-  const validateTransactionForm = () => {
-    const nextErrors: TransactionFormErrors = {};
-
-    if (!transactionForm.date) nextErrors.date = "請選擇日期";
-    if (!transactionForm.symbol.trim()) nextErrors.symbol = "請輸入代號";
-    if (!transactionForm.name.trim()) nextErrors.name = "請輸入名稱";
-    if (!transactionForm.category.trim()) nextErrors.category = "請選擇分類";
-    if (!Number.isFinite(transactionForm.shares) || transactionForm.shares <= 0) {
-      nextErrors.shares = "股數必須大於 0";
-    }
-    if (!Number.isFinite(transactionForm.price) || transactionForm.price <= 0) {
-      nextErrors.price = "成交價必須大於 0";
-    }
-    if (transactionForm.fee !== undefined && transactionForm.fee < 0) {
-      nextErrors.fee = "手續費不可小於 0";
-    }
-    if (transactionForm.tax !== undefined && transactionForm.tax < 0) {
-      nextErrors.tax = "稅不可小於 0";
-    }
-
-    setTransactionErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
-  };
-
   const validateManualForm = () => {
     const nextErrors: ManualFormErrors = {};
 
@@ -177,30 +124,10 @@ export default function HoldingsPage({
     return Object.keys(nextErrors).length === 0;
   };
 
-  const resetTransactionForm = () => {
-    setTransactionForm(emptyTransactionForm);
-    setEditingTransactionId(null);
-    setTransactionErrors({});
-  };
-
   const resetManualForm = () => {
     setManualForm(emptyManualForm);
     setEditingManualId(null);
     setManualErrors({});
-  };
-
-  const handleTransactionSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (!validateTransactionForm()) return;
-
-    if (editingTransactionId) {
-      updateTransaction(editingTransactionId, transactionForm);
-    } else {
-      addTransaction(transactionForm);
-    }
-
-    resetTransactionForm();
   };
 
   const handleManualSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -215,35 +142,6 @@ export default function HoldingsPage({
     }
 
     resetManualForm();
-  };
-
-  const handleEditTransaction = (transaction: TransactionRecord) => {
-    setEditingTransactionId(transaction.id);
-    setTransactionForm({
-      date: transaction.date,
-      symbol: transaction.symbol,
-      name: transaction.name,
-      category: transaction.category,
-      type: transaction.type,
-      shares: transaction.shares,
-      price: transaction.price,
-      fee: transaction.fee ?? 0,
-      tax: transaction.tax ?? 0,
-      note: transaction.note ?? "",
-    });
-    setTransactionErrors({});
-  };
-
-  const handleDeleteTransaction = (transaction: TransactionRecord) => {
-    const confirmed = window.confirm(
-      `確定要刪除 ${transaction.date} ${getTransactionTypeLabel(
-        transaction.type,
-      )} ${transaction.symbol} 嗎？`,
-    );
-
-    if (confirmed) {
-      deleteTransaction(transaction.id);
-    }
   };
 
   const handleEditManualHolding = (holding: PortfolioHolding) => {
@@ -274,7 +172,6 @@ export default function HoldingsPage({
     if (confirmed) {
       resetTransactions();
       resetHoldings();
-      resetTransactionForm();
       resetManualForm();
     }
   };
@@ -397,6 +294,13 @@ export default function HoldingsPage({
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <button
+              className="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 sm:w-auto"
+              onClick={onNavigateToTransactions}
+              type="button"
+            >
+              新增交易
+            </button>
+            <button
               className="w-full rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-stone-300 sm:w-auto"
               disabled={priceUpdateLoading || activePositions.length === 0}
               onClick={() => void handleUpdateCurrentPrices()}
@@ -508,443 +412,119 @@ export default function HoldingsPage({
           </section>
         ) : null}
 
-        <div className="flex flex-col gap-6">
-          <div className="order-2">
-            <SectionCard
-              description="記錄買進或賣出後，系統會自動整理目前持股。"
-              title={editingTransactionId ? "編輯交易" : "新增交易"}
-            >
-            <form className="grid gap-4" onSubmit={handleTransactionSubmit}>
-              <div className="grid gap-4 md:grid-cols-3">
-                <label className="grid gap-2 text-sm font-medium text-slate-700">
-                  日期
-                  <input
-                    className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    onChange={(event) =>
-                      setTransactionForm((current) => ({
-                        ...current,
-                        date: event.target.value,
-                      }))
-                    }
-                    type="date"
-                    value={transactionForm.date}
-                  />
-                  {transactionErrors.date ? (
-                    <span className="text-xs text-red-600">
-                      {transactionErrors.date}
-                    </span>
-                  ) : null}
-                </label>
-
-                <label className="grid gap-2 text-sm font-medium text-slate-700">
-                  代號
-                  <input
-                    className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    onChange={(event) =>
-                      setTransactionForm((current) => ({
-                        ...current,
-                        symbol: event.target.value,
-                      }))
-                    }
-                    placeholder="例如 0050"
-                    value={transactionForm.symbol}
-                  />
-                  {transactionErrors.symbol ? (
-                    <span className="text-xs text-red-600">
-                      {transactionErrors.symbol}
-                    </span>
-                  ) : null}
-                </label>
-
-                <label className="grid gap-2 text-sm font-medium text-slate-700">
-                  名稱
-                  <input
-                    className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    onChange={(event) =>
-                      setTransactionForm((current) => ({
-                        ...current,
-                        name: event.target.value,
-                      }))
-                    }
-                    placeholder="例如 元大台灣50"
-                    value={transactionForm.name}
-                  />
-                  {transactionErrors.name ? (
-                    <span className="text-xs text-red-600">
-                      {transactionErrors.name}
-                    </span>
-                  ) : null}
-                </label>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-3">
-                <label className="grid gap-2 text-sm font-medium text-slate-700">
-                  分類
-                  <select
-                    className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    onChange={(event) =>
-                      setTransactionForm((current) => ({
-                        ...current,
-                        category: event.target.value,
-                      }))
-                    }
-                    value={transactionForm.category}
-                  >
-                    <option value="">請選擇分類</option>
-                    {categoryOptions.map((category) => (
-                      <option key={category} value={category}>
-                        {category}
-                      </option>
-                    ))}
-                  </select>
-                  {transactionErrors.category ? (
-                    <span className="text-xs text-red-600">
-                      {transactionErrors.category}
-                    </span>
-                  ) : null}
-                </label>
-
-                <label className="grid gap-2 text-sm font-medium text-slate-700">
-                  買賣
-                  <select
-                    className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    onChange={(event) =>
-                      setTransactionForm((current) => ({
-                        ...current,
-                        type: event.target.value as TransactionRecord["type"],
-                      }))
-                    }
-                    value={transactionForm.type}
-                  >
-                    <option value="buy">買進</option>
-                    <option value="sell">賣出</option>
-                  </select>
-                </label>
-
-                <label className="grid gap-2 text-sm font-medium text-slate-700">
-                  股數
-                  <input
-                    className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    min="0"
-                    onChange={(event) =>
-                      setTransactionForm((current) => ({
-                        ...current,
-                        shares: Number(event.target.value),
-                      }))
-                    }
-                    step="0.001"
-                    type="number"
-                    value={transactionForm.shares || ""}
-                  />
-                  {transactionErrors.shares ? (
-                    <span className="text-xs text-red-600">
-                      {transactionErrors.shares}
-                    </span>
-                  ) : null}
-                </label>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-3">
-                <label className="grid gap-2 text-sm font-medium text-slate-700">
-                  成交價
-                  <input
-                    className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    min="0"
-                    onChange={(event) =>
-                      setTransactionForm((current) => ({
-                        ...current,
-                        price: Number(event.target.value),
-                      }))
-                    }
-                    step="0.01"
-                    type="number"
-                    value={transactionForm.price || ""}
-                  />
-                  {transactionErrors.price ? (
-                    <span className="text-xs text-red-600">
-                      {transactionErrors.price}
-                    </span>
-                  ) : null}
-                </label>
-                <label className="grid gap-2 text-sm font-medium text-slate-700">
-                  手續費
-                  <input
-                    className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    min="0"
-                    onChange={(event) =>
-                      setTransactionForm((current) => ({
-                        ...current,
-                        fee: Number(event.target.value),
-                      }))
-                    }
-                    step="1"
-                    type="number"
-                    value={transactionForm.fee || ""}
-                  />
-                  {transactionErrors.fee ? (
-                    <span className="text-xs text-red-600">
-                      {transactionErrors.fee}
-                    </span>
-                  ) : null}
-                </label>
-                <label className="grid gap-2 text-sm font-medium text-slate-700">
-                  稅
-                  <input
-                    className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    min="0"
-                    onChange={(event) =>
-                      setTransactionForm((current) => ({
-                        ...current,
-                        tax: Number(event.target.value),
-                      }))
-                    }
-                    step="1"
-                    type="number"
-                    value={transactionForm.tax || ""}
-                  />
-                  {transactionErrors.tax ? (
-                    <span className="text-xs text-red-600">
-                      {transactionErrors.tax}
-                    </span>
-                  ) : null}
-                </label>
-              </div>
-
-              <label className="grid gap-2 text-sm font-medium text-slate-700">
-                備註
-                <textarea
-                  className="min-h-20 rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  onChange={(event) =>
-                    setTransactionForm((current) => ({
-                      ...current,
-                      note: event.target.value,
-                    }))
-                  }
-                  placeholder="選填"
-                  value={transactionForm.note ?? ""}
-                />
-              </label>
-
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <button
-                  className="rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
-                  type="submit"
-                >
-                  {editingTransactionId ? "儲存修改" : "新增交易"}
-                </button>
-                {editingTransactionId ? (
-                  <button
-                    className="rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-stone-50"
-                    onClick={resetTransactionForm}
-                    type="button"
-                  >
-                    取消編輯
-                  </button>
-                ) : null}
-              </div>
-              </form>
-            </SectionCard>
-          </div>
-
-          <div className="order-1">
-            <SectionCard
-              description="目前價格可直接輸入，按 Enter 或離開欄位後儲存。"
-              title="目前持股"
-            >
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[1320px] text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-stone-200 text-slate-500">
-                      <th className="pb-3 font-medium">代號</th>
-                      <th className="pb-3 font-medium">名稱</th>
-                      <th className="pb-3 text-right font-medium">剩餘股數</th>
-                      <th className="pb-3 text-right font-medium">平均成本</th>
-                      <th className="pb-3 text-right font-medium">投入成本</th>
-                      <th className="pb-3 text-right font-medium">目前價格</th>
-                      <th className="pb-3 text-right font-medium">目前市值</th>
-                      <th className="pb-3 text-right font-medium">未實現損益</th>
-                      <th className="pb-3 text-right font-medium">未實現報酬率</th>
-                      <th className="pb-3 text-right font-medium">總損益</th>
-                      <th className="pb-3 text-right font-medium">投組佔比</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activePositions.length === 0 ? (
-                      <tr>
-                        <td className="py-6 text-slate-500" colSpan={11}>
-                          尚未有目前持股。新增買進交易後會出現在這裡。
-                        </td>
-                      </tr>
-                    ) : (
-                      activePositions.map((position) => {
-                        const latestPrice = latestPriceMap.get(
-                          position.symbol.toUpperCase(),
-                        );
-                        const hasCurrentPrice = position.priceStatus === "priced";
-                        const priceValue =
-                          priceDrafts[position.symbol] ??
-                          String(position.marketPrice ?? "");
-                        const portfolioWeight =
-                          hasCurrentPrice && totalMarketValue > 0
-                            ? (position.marketValue / totalMarketValue) * 100
-                            : null;
-
-                        return (
-                          <tr
-                            className="border-b border-stone-100 last:border-0"
-                            key={position.symbol}
-                          >
-                            <td className="py-4 font-semibold text-slate-950">
-                              {position.symbol}
-                            </td>
-                            <td className="py-4 text-slate-700">{position.name}</td>
-                            <td className="py-4 text-right text-slate-600">
-                              {formatShares(position.shares)}
-                            </td>
-                            <td className="py-4 text-right text-slate-600">
-                              {formatCurrency(position.averageCost)}
-                            </td>
-                            <td className="py-4 text-right text-slate-600">
-                              {formatCurrency(position.totalCost)}
-                            </td>
-                            <td className="py-3 text-right">
-                              <input
-                                aria-label={`${position.symbol} 目前價格`}
-                                className="w-28 rounded-lg border border-stone-300 bg-white px-2 py-2 text-right text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                                min="0"
-                                onBlur={() =>
-                                  saveCurrentPrice(position.symbol, position.name)
-                                }
-                                onChange={(event) =>
-                                  setPriceDrafts((current) => ({
-                                    ...current,
-                                    [position.symbol]: event.target.value,
-                                  }))
-                                }
-                                onKeyDown={(event) =>
-                                  handlePriceKeyDown(
-                                    event,
-                                    position.symbol,
-                                    position.name,
-                                  )
-                                }
-                                step="0.01"
-                                type="number"
-                                value={priceValue}
-                              />
-                              <p className="mt-1 text-xs text-slate-500">
-                                {latestPrice?.date ?? "待更新"}
-                              </p>
-                            </td>
-                            <td className="py-4 text-right font-medium text-slate-950">
-                              {hasCurrentPrice ? formatCurrency(position.marketValue) : "—"}
-                            </td>
-                            <td className="py-4 text-right text-slate-600">
-                              {hasCurrentPrice
-                                ? formatCurrency(position.unrealizedPnL)
-                                : "—"}
-                            </td>
-                            <td className="py-4 text-right text-slate-600">
-                              {hasCurrentPrice
-                                ? formatPercent(position.unrealizedReturnPercent)
-                                : "—"}
-                            </td>
-                            <td className="py-4 text-right text-slate-600">
-                              {hasCurrentPrice ? formatCurrency(position.totalPnL) : "—"}
-                            </td>
-                            <td className="py-4 text-right text-slate-600">
-                              {portfolioWeight === null
-                                ? "—"
-                                : formatPercent(portfolioWeight)}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </SectionCard>
-          </div>
-        </div>
-
         <SectionCard
-          description="最近的交易排在最上方。"
-          title="交易紀錄"
+          description="目前價格可直接輸入，按 Enter 或離開欄位後儲存。"
+          title="目前持股"
         >
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-left text-sm">
+            <table className="w-full min-w-[1320px] text-left text-sm">
               <thead>
                 <tr className="border-b border-stone-200 text-slate-500">
-                  <th className="pb-3 font-medium">日期</th>
                   <th className="pb-3 font-medium">代號</th>
-                  <th className="pb-3 font-medium">買賣</th>
-                  <th className="pb-3 text-right font-medium">股數</th>
-                  <th className="pb-3 text-right font-medium">成交價</th>
-                  <th className="pb-3 text-right font-medium">費稅</th>
-                  <th className="pb-3 font-medium">備註</th>
-                  <th className="pb-3 text-right font-medium">操作</th>
+                  <th className="pb-3 font-medium">名稱</th>
+                  <th className="pb-3 text-right font-medium">剩餘股數</th>
+                  <th className="pb-3 text-right font-medium">平均成本</th>
+                  <th className="pb-3 text-right font-medium">投入成本</th>
+                  <th className="pb-3 text-right font-medium">目前價格</th>
+                  <th className="pb-3 text-right font-medium">目前市值</th>
+                  <th className="pb-3 text-right font-medium">未實現損益</th>
+                  <th className="pb-3 text-right font-medium">未實現報酬率</th>
+                  <th className="pb-3 text-right font-medium">總損益</th>
+                  <th className="pb-3 text-right font-medium">投組佔比</th>
                 </tr>
               </thead>
               <tbody>
-                {transactions.length === 0 ? (
+                {activePositions.length === 0 ? (
                   <tr>
-                    <td className="py-6 text-slate-500" colSpan={8}>
-                      尚未建立交易紀錄。
+                    <td className="py-6 text-slate-500" colSpan={11}>
+                      尚未有目前持股。請到「交易紀錄」新增買進資料。
                     </td>
                   </tr>
                 ) : (
-                  transactions.map((transaction) => (
-                    <tr
-                      className="border-b border-stone-100 last:border-0"
-                      key={transaction.id}
-                    >
-                      <td className="py-4 text-slate-600">{transaction.date}</td>
-                      <td className="py-4">
-                        <p className="font-semibold text-slate-950">
-                          {transaction.symbol}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {transaction.name}
-                        </p>
-                      </td>
-                      <td className="py-4 text-slate-700">
-                        {getTransactionTypeLabel(transaction.type)}
-                      </td>
-                      <td className="py-4 text-right text-slate-600">
-                        {formatShares(transaction.shares)}
-                      </td>
-                      <td className="py-4 text-right text-slate-600">
-                        {formatCurrency(transaction.price)}
-                      </td>
-                      <td className="py-4 text-right text-slate-600">
-                        {formatCurrency(
-                          (transaction.fee ?? 0) + (transaction.tax ?? 0),
-                        )}
-                      </td>
-                      <td className="max-w-48 truncate py-4 text-slate-500">
-                        {transaction.note ?? "-"}
-                      </td>
-                      <td className="py-4">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-stone-50"
-                            onClick={() => handleEditTransaction(transaction)}
-                            type="button"
-                          >
-                            編輯
-                          </button>
-                          <button
-                            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100"
-                            onClick={() => handleDeleteTransaction(transaction)}
-                            type="button"
-                          >
-                            刪除
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  activePositions.map((position) => {
+                    const latestPrice = latestPriceMap.get(
+                      position.symbol.toUpperCase(),
+                    );
+                    const hasCurrentPrice = position.priceStatus === "priced";
+                    const priceValue =
+                      priceDrafts[position.symbol] ??
+                      String(position.marketPrice ?? "");
+                    const portfolioWeight =
+                      hasCurrentPrice && totalMarketValue > 0
+                        ? (position.marketValue / totalMarketValue) * 100
+                        : null;
+
+                    return (
+                      <tr
+                        className="border-b border-stone-100 last:border-0"
+                        key={position.symbol}
+                      >
+                        <td className="py-4 font-semibold text-slate-950">
+                          {position.symbol}
+                        </td>
+                        <td className="py-4 text-slate-700">{position.name}</td>
+                        <td className="py-4 text-right text-slate-600">
+                          {formatShares(position.shares)}
+                        </td>
+                        <td className="py-4 text-right text-slate-600">
+                          {formatCurrency(position.averageCost)}
+                        </td>
+                        <td className="py-4 text-right text-slate-600">
+                          {formatCurrency(position.totalCost)}
+                        </td>
+                        <td className="py-3 text-right">
+                          <input
+                            aria-label={`${position.symbol} 目前價格`}
+                            className="w-28 rounded-lg border border-stone-300 bg-white px-2 py-2 text-right text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            min="0"
+                            onBlur={() =>
+                              saveCurrentPrice(position.symbol, position.name)
+                            }
+                            onChange={(event) =>
+                              setPriceDrafts((current) => ({
+                                ...current,
+                                [position.symbol]: event.target.value,
+                              }))
+                            }
+                            onKeyDown={(event) =>
+                              handlePriceKeyDown(
+                                event,
+                                position.symbol,
+                                position.name,
+                              )
+                            }
+                            step="0.01"
+                            type="number"
+                            value={priceValue}
+                          />
+                          <p className="mt-1 text-xs text-slate-500">
+                            {latestPrice?.date ?? "待更新"}
+                          </p>
+                        </td>
+                        <td className="py-4 text-right font-medium text-slate-950">
+                          {hasCurrentPrice ? formatCurrency(position.marketValue) : "—"}
+                        </td>
+                        <td className="py-4 text-right text-slate-600">
+                          {hasCurrentPrice
+                            ? formatCurrency(position.unrealizedPnL)
+                            : "—"}
+                        </td>
+                        <td className="py-4 text-right text-slate-600">
+                          {hasCurrentPrice
+                            ? formatPercent(position.unrealizedReturnPercent)
+                            : "—"}
+                        </td>
+                        <td className="py-4 text-right text-slate-600">
+                          {hasCurrentPrice ? formatCurrency(position.totalPnL) : "—"}
+                        </td>
+                        <td className="py-4 text-right text-slate-600">
+                          {portfolioWeight === null
+                            ? "—"
+                            : formatPercent(portfolioWeight)}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
