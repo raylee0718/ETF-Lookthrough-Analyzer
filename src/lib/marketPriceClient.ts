@@ -4,13 +4,16 @@ type FetchMarketPricesOptions = {
   symbols: string[];
 };
 
+const normalizeSymbolForPriceLookup = (symbol: string) =>
+  symbol.trim().toUpperCase().replace(/\.(TW|TWO)$/u, "");
+
 export async function fetchMarketPricesForSymbols({
   symbols,
 }: FetchMarketPricesOptions): Promise<MarketPricesResponse> {
   const normalizedSymbols = Array.from(
     new Set(
       symbols
-        .map((symbol) => symbol.trim().toUpperCase())
+        .map(normalizeSymbolForPriceLookup)
         .filter((symbol) => symbol.length > 0),
     ),
   );

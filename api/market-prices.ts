@@ -53,6 +53,9 @@ const INVALID_PRICE_VALUES = new Set(["", "--", "---", "----", "N/A", "NA"]);
 const isProviderRow = (value: unknown): value is ProviderRow =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
+const normalizeSymbolForLookup = (symbol: string) =>
+  symbol.trim().toUpperCase().replace(/\.(TW|TWO)$/u, "");
+
 const getRowsFromResponse = (data: unknown): ProviderRow[] => {
   if (Array.isArray(data)) {
     return data.filter(isProviderRow);
@@ -129,7 +132,7 @@ const parseSymbols = (rawSymbols: string | string[] | undefined) => {
     new Set(
       joinedSymbols
         .split(",")
-        .map((symbol) => symbol.trim().toUpperCase())
+        .map(normalizeSymbolForLookup)
         .filter(Boolean),
     ),
   );
@@ -184,13 +187,13 @@ const parseRowsToPriceMap = (
   const priceMap = new Map<string, ParsedPrice>();
 
   rows.forEach((row) => {
-    const symbol = getStringField(row, [
+    const symbol = normalizeSymbolForLookup(getStringField(row, [
       "Code",
       "SecuritiesCompanyCode",
       "證券代號",
       "代號",
       "股票代號",
-    ]).toUpperCase();
+    ]));
     const name = getStringField(row, [
       "Name",
       "CompanyName",
@@ -227,36 +230,72 @@ const parseRowsToPriceMap = (
   return priceMap;
 };
 
-const fetchOfficialClosingPriceMap = async () => {
+const fetchProviderPriceMap = async (url: string, source: string) => {
+  const data = await fetchProviderJson(url);
+  const rows = getRowsFromResponse(data);
+
+  if (rows.length === 0) {
+    return {
+      priceMap: new Map<string, ParsedPrice>(),
+      warning: `${source} 未回傳可用資料。`,
+    };
+  }
+
+  return { priceMap: parseRowsToPriceMap(rows, source), warning: undefined };
+};
+
+const fetchOfficialClosingPrices = async (symbols: string[]) => {
   const warnings: string[] = [];
   const errors: string[] = [];
-  const priceMap = new Map<string, ParsedPrice>();
+  const pricesBySymbol = new Map<string, ParsedPrice>();
 
-  await Promise.all(
-    [
-      { url: TWSE_DAILY_CLOSE_URL, source: "TWSE OpenAPI" },
-      { url: TPEX_DAILY_CLOSE_URL, source: "TPEx OpenAPI" },
-    ].map(async (provider) => {
-      try {
-        const data = await fetchProviderJson(provider.url);
-        const rows = getRowsFromResponse(data);
+  try {
+    const twseResult = await fetchProviderPriceMap(
+      TWSE_DAILY_CLOSE_URL,
+      "TWSE OpenAPI",
+    );
 
-        if (rows.length === 0) {
-          warnings.push(`${provider.source} 未回傳可用資料。`);
-          return;
-        }
+    if (twseResult.warning) {
+      warnings.push(twseResult.warning);
+    }
 
-        parseRowsToPriceMap(rows, provider.source).forEach((price, symbol) => {
-          priceMap.set(symbol, price);
-        });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        errors.push(`${provider.source} 抓取失敗：${message}`);
+    symbols.forEach((symbol) => {
+      const price = twseResult.priceMap.get(symbol);
+      if (price) {
+        pricesBySymbol.set(symbol, price);
       }
-    }),
-  );
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    errors.push(`TWSE OpenAPI 抓取失敗：${message}`);
+  }
 
-  return { priceMap, warnings, errors };
+  const missingAfterTwse = symbols.filter((symbol) => !pricesBySymbol.has(symbol));
+
+  if (missingAfterTwse.length > 0) {
+    try {
+      const tpexResult = await fetchProviderPriceMap(
+        TPEX_DAILY_CLOSE_URL,
+        "TPEx OpenAPI",
+      );
+
+      if (tpexResult.warning) {
+        warnings.push(tpexResult.warning);
+      }
+
+      missingAfterTwse.forEach((symbol) => {
+        const price = tpexResult.priceMap.get(symbol);
+        if (price) {
+          pricesBySymbol.set(symbol, price);
+        }
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      errors.push(`TPEx OpenAPI 抓取失敗：${message}`);
+    }
+  }
+
+  return { pricesBySymbol, warnings, errors };
 };
 
 const createResponse = (
@@ -305,13 +344,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Cache-Control", CACHE_CONTROL);
 
   const {
-    priceMap,
+    pricesBySymbol,
     warnings: providerWarnings,
     errors: providerErrors,
-  } = await fetchOfficialClosingPriceMap();
+  } = await fetchOfficialClosingPrices(symbols);
 
   const prices = symbols.map<MarketPriceResult>((symbol) => {
-    const price = priceMap.get(symbol);
+    const price = pricesBySymbol.get(symbol);
 
     if (!price) {
       return {
@@ -352,7 +391,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   );
 
   const providerUnavailable =
-    okCount === 0 && providerErrors.length > 0 && priceMap.size === 0;
+    okCount === 0 && providerErrors.length > 0 && pricesBySymbol.size === 0;
 
   return res.status(providerUnavailable ? 502 : 200).json(response);
 }

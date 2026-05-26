@@ -6,6 +6,9 @@ import type {
 } from "../types/prices";
 import type { CalculatedPosition } from "../types/transactions";
 
+export const normalizePriceLookupSymbol = (symbol: string) =>
+  symbol.trim().toUpperCase().replace(/\.(TW|TWO)$/u, "");
+
 export function getPriceSourceLabel(sourceType?: PriceSourceType) {
   switch (sourceType) {
     case "csv":
@@ -26,7 +29,7 @@ export function getLatestPriceMap(priceRecords: PriceRecord[]) {
       return;
     }
 
-    const symbol = record.symbol.toUpperCase();
+    const symbol = normalizePriceLookupSymbol(record.symbol);
     const existingRecord = latestPriceMap.get(symbol);
 
     if (!existingRecord || record.date > existingRecord.date) {
@@ -45,7 +48,9 @@ export function getMissingPriceSymbols(
 
   return positions
     .filter((position) => position.shares > 0)
-    .filter((position) => !latestPriceMap.has(position.symbol.toUpperCase()))
+    .filter(
+      (position) => !latestPriceMap.has(normalizePriceLookupSymbol(position.symbol)),
+    )
     .map((position) => position.symbol);
 }
 
@@ -77,7 +82,9 @@ export function calculatePositionsWithMarketValue(
 
   return positions
     .map((position) => {
-      const latestPrice = latestPriceMap.get(position.symbol.toUpperCase());
+      const latestPrice = latestPriceMap.get(
+        normalizePriceLookupSymbol(position.symbol),
+      );
 
       if (!latestPrice) {
         return {

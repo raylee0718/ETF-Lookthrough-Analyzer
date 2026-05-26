@@ -9,6 +9,7 @@ import { calculatePositionsFromTransactions } from "../lib/positions";
 import {
   calculatePositionsWithMarketValue,
   getLatestPriceMap,
+  normalizePriceLookupSymbol,
 } from "../lib/prices";
 import type { MarketPricesResponse } from "../types/marketPrices";
 import type { PortfolioHolding } from "../types/portfolio";
@@ -223,7 +224,7 @@ export default function HoldingsPage({
       const result = await fetchMarketPricesForSymbols({ symbols });
       const positionNameMap = new Map(
         activePositions.map((position) => [
-          position.symbol.toUpperCase(),
+          normalizePriceLookupSymbol(position.symbol),
           position.name,
         ]),
       );
@@ -253,6 +254,14 @@ export default function HoldingsPage({
           const nextDrafts = { ...current };
           validPrices.forEach((price) => {
             delete nextDrafts[price.symbol];
+            activePositions
+              .filter(
+                (position) =>
+                  normalizePriceLookupSymbol(position.symbol) === price.symbol,
+              )
+              .forEach((position) => {
+                delete nextDrafts[position.symbol];
+              });
           });
           return nextDrafts;
         });
