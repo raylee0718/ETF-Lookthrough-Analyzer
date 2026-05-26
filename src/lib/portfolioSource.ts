@@ -59,15 +59,15 @@ export function getPortfolioHoldingsForAnalysis({
   ];
 
   if (missingPriceSymbols.length > 0) {
-    dataQualityNotes.push("部分標的缺少價格，暫以投入成本估算市值。");
+    dataQualityNotes.push("部分持股缺少目前價格，已暫不納入穿透分析。");
   }
 
   return {
     holdingsForAnalysis,
     dataQualityNotes,
     missingPriceSymbols,
-    totalMarketValue: pricedPositions.reduce(
-      (sum, position) => sum + position.marketValue,
+    totalMarketValue: holdingsForAnalysis.reduce(
+      (sum, holding) => sum + holding.marketValue,
       0,
     ),
     modeLabel: getPortfolioDataSourceLabel(mode),

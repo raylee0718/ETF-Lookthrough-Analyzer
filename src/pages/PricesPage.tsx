@@ -320,7 +320,7 @@ export default function PricesPage({
             這裡可以手動輸入最新價格，讓交易紀錄計算出的股數轉換為目前市值。之後可以再升級成自動抓取收盤價。
           </p>
           <p className="mt-2 text-sm leading-6">
-            價格表會用來計算目前市值。缺少價格時，系統會暫以投入成本估算。
+            價格表會用來計算目前市值。缺少價格時，相關市值與比例會先顯示為待更新。
           </p>
         </section>
 
@@ -413,7 +413,7 @@ export default function PricesPage({
             <StatCard
               label="缺少價格數"
               value={`${priceCoverageSummary.missingPriceCount} 檔`}
-              helperText="目前會先用投入成本估算"
+              helperText="待補目前價格"
             />
             <StatCard
               label="覆蓋率"

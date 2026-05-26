@@ -110,8 +110,18 @@ export default function HoldingsPage({
     () => getLatestPriceMap(priceRecords),
     [priceRecords],
   );
+  const activePositions = pricedPositions.filter((position) => position.shares > 0);
+  const missingPriceCount = activePositions.filter(
+    (position) => position.priceStatus === "missing",
+  ).length;
   const totalMarketValue = useMemo(
-    () => pricedPositions.reduce((sum, position) => sum + position.marketValue, 0),
+    () =>
+      pricedPositions
+        .filter(
+          (position) =>
+            position.shares > 0 && position.priceStatus === "priced",
+        )
+        .reduce((sum, position) => sum + position.marketValue, 0),
     [pricedPositions],
   );
   const totalCostBasis = useMemo(
@@ -122,8 +132,6 @@ export default function HoldingsPage({
     () => holdings.reduce((sum, holding) => sum + holding.marketValue, 0),
     [holdings],
   );
-
-  const activePositions = pricedPositions.filter((position) => position.shares > 0);
 
   const validateTransactionForm = () => {
     const nextErrors: TransactionFormErrors = {};
@@ -333,9 +341,23 @@ export default function HoldingsPage({
           <StatCard
             helperText="股數 × 目前價格"
             label="目前市值"
-            value={formatCurrency(totalMarketValue)}
+            value={
+              activePositions.length > 0 && totalMarketValue === 0
+                ? "待更新"
+                : formatCurrency(totalMarketValue)
+            }
           />
         </section>
+
+        {missingPriceCount > 0 ? (
+          <section className="rounded-lg border border-blue-200 bg-blue-50 p-5 text-sm leading-6 text-blue-950">
+            {missingPriceCount === activePositions.length ? (
+              <p>目前持股尚未輸入價格，市值、損益與比例待更新。</p>
+            ) : (
+              <p>部分標的缺少價格，比例僅依已更新價格的標的計算。</p>
+            )}
+          </section>
+        ) : null}
 
         {warnings.length > 0 ? (
           <section className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-950">
@@ -590,7 +612,7 @@ export default function HoldingsPage({
             title="目前持股"
           >
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1040px] text-left text-sm">
+              <table className="w-full min-w-[1320px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-stone-200 text-slate-500">
                     <th className="pb-3 font-medium">代號</th>
@@ -600,13 +622,16 @@ export default function HoldingsPage({
                     <th className="pb-3 text-right font-medium">投入成本</th>
                     <th className="pb-3 text-right font-medium">目前價格</th>
                     <th className="pb-3 text-right font-medium">目前市值</th>
+                    <th className="pb-3 text-right font-medium">未實現損益</th>
+                    <th className="pb-3 text-right font-medium">未實現報酬率</th>
+                    <th className="pb-3 text-right font-medium">總損益</th>
                     <th className="pb-3 text-right font-medium">投組佔比</th>
                   </tr>
                 </thead>
                 <tbody>
                   {activePositions.length === 0 ? (
                     <tr>
-                      <td className="py-6 text-slate-500" colSpan={8}>
+                      <td className="py-6 text-slate-500" colSpan={11}>
                         尚未有目前持股。新增買進交易後會出現在這裡。
                       </td>
                     </tr>
@@ -615,13 +640,14 @@ export default function HoldingsPage({
                       const latestPrice = latestPriceMap.get(
                         position.symbol.toUpperCase(),
                       );
+                      const hasCurrentPrice = position.priceStatus === "priced";
                       const priceValue =
                         priceDrafts[position.symbol] ??
-                        String(position.marketPrice ?? position.averageCost ?? "");
+                        String(position.marketPrice ?? "");
                       const portfolioWeight =
-                        totalMarketValue > 0
+                        hasCurrentPrice && totalMarketValue > 0
                           ? (position.marketValue / totalMarketValue) * 100
-                          : 0;
+                          : null;
 
                       return (
                         <tr
@@ -667,14 +693,29 @@ export default function HoldingsPage({
                               value={priceValue}
                             />
                             <p className="mt-1 text-xs text-slate-500">
-                              {latestPrice?.date ?? "未儲存價格"}
+                              {latestPrice?.date ?? "待更新"}
                             </p>
                           </td>
                           <td className="py-4 text-right font-medium text-slate-950">
-                            {formatCurrency(position.marketValue)}
+                            {hasCurrentPrice ? formatCurrency(position.marketValue) : "—"}
                           </td>
                           <td className="py-4 text-right text-slate-600">
-                            {formatPercent(portfolioWeight)}
+                            {hasCurrentPrice
+                              ? formatCurrency(position.unrealizedPnL)
+                              : "—"}
+                          </td>
+                          <td className="py-4 text-right text-slate-600">
+                            {hasCurrentPrice
+                              ? formatPercent(position.unrealizedReturnPercent)
+                              : "—"}
+                          </td>
+                          <td className="py-4 text-right text-slate-600">
+                            {hasCurrentPrice ? formatCurrency(position.totalPnL) : "—"}
+                          </td>
+                          <td className="py-4 text-right text-slate-600">
+                            {portfolioWeight === null
+                              ? "—"
+                              : formatPercent(portfolioWeight)}
                           </td>
                         </tr>
                       );

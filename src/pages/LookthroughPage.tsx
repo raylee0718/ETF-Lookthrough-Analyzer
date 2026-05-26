@@ -140,9 +140,18 @@ export default function LookthroughPage({
         ) : null}
 
         {holdingsForAnalysis.length === 0 &&
-        settings.portfolioDataSourceMode === "transactions" ? (
+        transactions.length > 0 &&
+        portfolioSource.missingPriceSymbols.length === 0 ? (
           <section className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-amber-950">
-            尚未建立交易紀錄，請先到「交易紀錄」新增買進或賣出資料。
+            目前沒有可分析的持股。
+          </section>
+        ) : null}
+
+        {holdingsForAnalysis.length === 0 &&
+        transactions.length > 0 &&
+        portfolioSource.missingPriceSymbols.length > 0 ? (
+          <section className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-amber-950">
+            目前持股缺少目前價格，已暫不納入穿透分析。請先回到「我的持股」輸入價格。
           </section>
         ) : null}
 

@@ -22,6 +22,10 @@ export function getLatestPriceMap(priceRecords: PriceRecord[]) {
   const latestPriceMap = new Map<string, PriceRecord>();
 
   priceRecords.forEach((record) => {
+    if (!Number.isFinite(record.price) || record.price <= 0) {
+      return;
+    }
+
     const symbol = record.symbol.toUpperCase();
     const existingRecord = latestPriceMap.get(symbol);
 
@@ -78,10 +82,10 @@ export function calculatePositionsWithMarketValue(
       if (!latestPrice) {
         return {
           ...position,
-          marketValue: position.totalCost,
+          marketValue: 0,
           unrealizedPnL: 0,
           unrealizedReturnPercent: 0,
-          totalPnL: position.realizedPnL,
+          totalPnL: 0,
           priceStatus: "missing" as const,
         };
       }
@@ -108,16 +112,13 @@ export function convertPricedPositionsToPortfolioHoldings(
   positions: PositionWithMarketValue[],
 ): PortfolioHolding[] {
   return positions
-    .filter((position) => position.shares > 0)
+    .filter((position) => position.shares > 0 && position.priceStatus === "priced")
     .map((position) => ({
       id: `priced-position-${position.symbol}`,
       symbol: position.symbol,
       name: position.name,
       category: position.category,
       marketValue: position.marketValue,
-      note:
-        position.priceStatus === "priced"
-          ? "由交易紀錄與手動價格表估算"
-          : "缺少價格，暫以投入成本估算",
+      note: "由交易紀錄與手動價格表估算",
     }));
 }

@@ -3,7 +3,10 @@ import { useEtfConstituents } from "./hooks/useEtfConstituents";
 import { usePortfolioHoldings } from "./hooks/usePortfolioHoldings";
 import { usePriceRecords } from "./hooks/usePriceRecords";
 import { useTransactions } from "./hooks/useTransactions";
-import { calculatePositionsFromTransactions } from "./lib/positions";
+import {
+  calculatePositionsFromTransactions,
+  convertPositionsToPortfolioHoldings,
+} from "./lib/positions";
 import {
   calculatePositionsWithMarketValue,
   convertPricedPositionsToPortfolioHoldings,
@@ -68,6 +71,17 @@ export default function App() {
     [
       portfolioHoldings.holdings,
       transactionPricedPositions,
+      transactions.transactions.length,
+    ],
+  );
+  const holdingsForEtfUpdates = useMemo(
+    () =>
+      transactions.transactions.length > 0
+        ? convertPositionsToPortfolioHoldings(transactionPositions)
+        : portfolioHoldings.holdings,
+    [
+      portfolioHoldings.holdings,
+      transactionPositions,
       transactions.transactions.length,
     ],
   );
@@ -155,7 +169,7 @@ export default function App() {
 
       {activePage === "constituents" ? (
         <EtfConstituentsPage
-          holdings={holdingsForWorkflow}
+          holdings={holdingsForEtfUpdates}
           {...etfConstituents}
         />
       ) : null}

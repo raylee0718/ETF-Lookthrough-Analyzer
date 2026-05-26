@@ -380,7 +380,7 @@ export default function Dashboard({
               </p>
               {priceCoverageSummary.missingPriceCount > 0 ? (
                 <p className="mt-2">
-                  部分標的缺少價格，目前暫以投入成本估算市值。缺少價格：{" "}
+                  部分標的缺少價格，暫不納入市值與穿透分析。缺少價格：{" "}
                   {priceCoverageSummary.missingSymbols.join("、")}
                 </p>
               ) : null}

@@ -263,7 +263,7 @@ export default function TransactionsPage({
           <StatCard
             label="交易筆數"
             value={`${transactions.length} 筆`}
-            helperText="儲存在此瀏覽器"
+            helperText="已輸入交易"
           />
           <StatCard
             label="計算後持股"
@@ -273,7 +273,7 @@ export default function TransactionsPage({
           <StatCard
             label="目前市值"
             value={formatCurrency(totalMarketValue)}
-            helperText="缺價者暫以投入成本估算"
+            helperText="僅計入已有價格標的"
           />
         </section>
 
