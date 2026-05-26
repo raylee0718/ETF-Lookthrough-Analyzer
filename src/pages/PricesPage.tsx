@@ -18,7 +18,6 @@ import {
 import {
   getLatestPriceMap,
   getPriceCoverageSummary,
-  getPriceSourceLabel,
 } from "../lib/prices";
 import type { PriceRecord } from "../types/prices";
 import type { CalculatedPosition } from "../types/transactions";
@@ -317,7 +316,7 @@ export default function PricesPage({
         <section className="rounded-lg border border-blue-200 bg-blue-50 p-5 text-blue-950">
           <h2 className="text-base font-semibold">價格表說明</h2>
           <p className="mt-2 text-sm leading-6">
-            這裡可以手動輸入最新價格，讓交易紀錄計算出的股數轉換為目前市值。之後可以再升級成自動抓取收盤價。
+            這裡可手動輸入或匯入每日收盤價，讓目前持股轉換為市值。
           </p>
           <p className="mt-2 text-sm leading-6">
             價格表會用來計算目前市值。缺少價格時，相關市值與比例會先顯示為待更新。
@@ -397,7 +396,7 @@ export default function PricesPage({
 
         <SectionCard
           title="價格資料覆蓋率"
-          description="未來自動抓價功能會補上這裡缺少的價格；目前仍可用手動輸入或 CSV 匯入。"
+          description="缺少價格的標的會先顯示為待更新。"
         >
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
@@ -428,16 +427,6 @@ export default function PricesPage({
                 ? priceCoverageSummary.missingSymbols.join("、")
                 : "目前沒有缺少價格的交易部位。"}
             </p>
-          </div>
-        </SectionCard>
-
-        <SectionCard
-          title="自動收盤價來源"
-          description="尚未啟用。未來可接入台股收盤價資料來源，讓你開啟網站時自動更新價格。"
-        >
-          <div className="rounded-lg border border-dashed border-stone-300 bg-stone-50 p-4 text-sm leading-6 text-slate-500">
-            目前沒有連接任何外部報價 API，也不會在背景自動抓價。請繼續使用手動輸入，或日後以 CSV 匯入每日價格。
-            支援的價格來源類型：{getPriceSourceLabel("manual")}、{getPriceSourceLabel("csv")}、{getPriceSourceLabel("provider")}。
           </div>
         </SectionCard>
 

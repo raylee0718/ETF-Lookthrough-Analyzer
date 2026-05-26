@@ -1545,7 +1545,7 @@ export default function EtfConstituentsPage({
         >
           {autoMvpStatusRows.length === 0 ? (
             <p className="rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm leading-6 text-slate-600">
-              目前沒有 ETF 持股。請先到「設定我的持股」新增 ETF，或使用下方手動匯入。
+              目前沒有 ETF 持股。請先到「我的持股」新增 ETF，或使用下方手動匯入。
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -1600,7 +1600,7 @@ export default function EtfConstituentsPage({
 
         <SectionCard
           title="一鍵更新目前持有 ETF"
-          description="系統會根據你在「設定我的持股」輸入的 ETF，找出目前支援自動更新的標的，並透過官方資料來源更新成分股。更新前會先預覽，不會直接覆蓋資料。"
+          description="系統會根據你在「我的持股」輸入的 ETF，找出目前支援自動更新的標的，並透過官方資料來源更新成分股。更新前會先預覽，不會直接覆蓋資料。"
         >
           <div className="grid gap-4">
             <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm leading-6 text-emerald-950">
@@ -1912,7 +1912,7 @@ export default function EtfConstituentsPage({
 
                 {heldEtfSuggestions.length === 0 ? (
                   <p className="rounded-lg border border-stone-200 bg-white p-3 text-sm leading-6 text-slate-600">
-                    目前沒有 ETF 持股。請先到「設定我的持股」新增 ETF，或使用下方手動匯入。
+                    目前沒有 ETF 持股。請先到「我的持股」新增 ETF，或使用下方手動匯入。
                   </p>
                 ) : (
                   <div className="grid gap-4 md:grid-cols-2">

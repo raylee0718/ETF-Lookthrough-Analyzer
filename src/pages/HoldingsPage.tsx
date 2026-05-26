@@ -362,10 +362,13 @@ export default function HoldingsPage({
       }
 
       const failedCount = result.prices.length - validPrices.length;
+      const failedSymbols = result.prices
+        .filter((price) => price.status !== "ok")
+        .map((price) => price.symbol);
       setPriceUpdateResult(result);
       setPriceUpdateMessage(
         failedCount > 0
-          ? `已更新 ${validPrices.length} 檔，${failedCount} 檔待更新。`
+          ? `已更新 ${validPrices.length} 檔，待更新：${failedSymbols.join("、")}。`
           : `已更新 ${validPrices.length} 檔目前價格。`,
       );
     } catch (error) {
@@ -452,6 +455,11 @@ export default function HoldingsPage({
               {priceUpdateResult.warnings.length > 0 ? (
                 <p className="text-amber-700">
                   {priceUpdateResult.warnings.join(" ")}
+                </p>
+              ) : null}
+              {priceUpdateResult.errors.length > 0 ? (
+                <p className="text-red-700">
+                  {priceUpdateResult.errors.join(" ")}
                 </p>
               ) : null}
             </div>

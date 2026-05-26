@@ -250,12 +250,9 @@ export default function TransactionsPage({
         </header>
 
         <section className="rounded-lg border border-blue-200 bg-blue-50 p-5 text-blue-950">
-          <h2 className="text-base font-semibold">交易紀錄說明</h2>
+          <h2 className="text-base font-semibold">交易整理</h2>
           <p className="mt-2 text-sm leading-6">
-            這裡可以記錄買進與賣出，系統會根據交易紀錄計算目前持有股數、平均成本與已實現損益。現階段價格由手動價格表提供，尚未自動抓取即時或收盤價。
-          </p>
-          <p className="mt-2 text-sm leading-6">
-            若要讓穿透分析反映最新市值，請同時維護價格表。
+            記錄買進與賣出後，系統會整理目前股數、平均成本與損益。價格可在「我的持股」更新或手動輸入。
           </p>
         </section>
 
@@ -272,7 +269,14 @@ export default function TransactionsPage({
           />
           <StatCard
             label="目前市值"
-            value={formatCurrency(totalMarketValue)}
+            value={
+              pricedPositions.some(
+                (position) =>
+                  position.shares > 0 && position.priceStatus === "priced",
+              )
+                ? formatCurrency(totalMarketValue)
+                : "待更新"
+            }
             helperText="僅計入已有價格標的"
           />
         </section>
@@ -477,7 +481,7 @@ export default function TransactionsPage({
 
           <SectionCard
             title="計算後持股"
-            description="使用平均成本法與手動價格表推算市值。"
+            description="使用平均成本法整理部位；缺少價格時市值與未實現損益待更新。"
           >
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1180px] text-left text-sm">
@@ -521,10 +525,12 @@ export default function TransactionsPage({
                       <td className="py-4 text-right text-slate-600">
                         {position.marketPrice
                           ? formatCurrency(position.marketPrice)
-                          : "缺少價格"}
+                          : "待更新"}
                       </td>
                       <td className="py-4 text-right font-medium text-slate-950">
-                        {formatCurrency(position.marketValue)}
+                        {position.priceStatus === "priced"
+                          ? formatCurrency(position.marketValue)
+                          : "—"}
                       </td>
                       <td
                         className={`py-4 text-right font-medium ${
@@ -533,10 +539,14 @@ export default function TransactionsPage({
                             : "text-red-700"
                         }`}
                       >
-                        {formatCurrency(position.unrealizedPnL)}
+                        {position.priceStatus === "priced"
+                          ? formatCurrency(position.unrealizedPnL)
+                          : "—"}
                       </td>
                       <td className="py-4 text-right text-slate-600">
-                        {formatPercent(position.unrealizedReturnPercent)}
+                        {position.priceStatus === "priced"
+                          ? formatPercent(position.unrealizedReturnPercent)
+                          : "—"}
                       </td>
                       <td
                         className={`py-4 text-right font-medium ${
@@ -554,12 +564,14 @@ export default function TransactionsPage({
                             : "text-red-700"
                         }`}
                       >
-                        {formatCurrency(position.totalPnL)}
+                        {position.priceStatus === "priced"
+                          ? formatCurrency(position.totalPnL)
+                          : "—"}
                       </td>
                       <td className="py-4 text-slate-600">
                         {position.priceStatus === "priced"
                           ? `已定價 ${position.lastPriceDate ?? ""}`
-                          : "缺少價格"}
+                          : "待更新"}
                       </td>
                     </tr>
                   ))}

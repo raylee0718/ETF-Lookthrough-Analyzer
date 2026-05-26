@@ -135,7 +135,7 @@ export default function LookthroughPage({
         {holdingsForAnalysis.length === 0 &&
         settings.portfolioDataSourceMode === "manual" ? (
           <section className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-amber-950">
-            尚未建立持股資料。請先到「設定我的持股」新增 ETF 或個股。
+            尚未建立持股資料。請先到「我的持股」新增 ETF 或個股。
           </section>
         ) : null}
 
