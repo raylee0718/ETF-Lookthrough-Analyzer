@@ -300,26 +300,26 @@ export default function TransactionsPage({
           </section>
         ) : null}
 
-        <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
+        <div className="grid gap-6">
           <SectionCard
             title={editingId ? "編輯交易" : "新增交易"}
             description="新增買進或賣出後，系統會整理目前持股。"
           >
             <form className="grid gap-4" onSubmit={handleSubmit}>
-              <label className="grid gap-2 text-sm font-medium text-slate-700">
-                日期
-                <input
-                  className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  onChange={(event) =>
-                    setFormValue((current) => ({ ...current, date: event.target.value }))
-                  }
-                  type="date"
-                  value={formValue.date}
-                />
-                {errors.date ? <span className="text-xs text-red-600">{errors.date}</span> : null}
-              </label>
+              <div className="grid gap-4 md:grid-cols-3">
+                <label className="grid gap-2 text-sm font-medium text-slate-700">
+                  日期
+                  <input
+                    className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    onChange={(event) =>
+                      setFormValue((current) => ({ ...current, date: event.target.value }))
+                    }
+                    type="date"
+                    value={formValue.date}
+                  />
+                  {errors.date ? <span className="text-xs text-red-600">{errors.date}</span> : null}
+                </label>
 
-              <div className="grid gap-4 sm:grid-cols-2">
                 <label className="grid gap-2 text-sm font-medium text-slate-700">
                   代號
                   <input
@@ -347,43 +347,43 @@ export default function TransactionsPage({
                 </label>
               </div>
 
-              <label className="grid gap-2 text-sm font-medium text-slate-700">
-                類別
-                <select
-                  className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  onChange={(event) =>
-                    setFormValue((current) => ({ ...current, category: event.target.value }))
-                  }
-                  value={formValue.category}
-                >
-                  <option value="">請選擇類別</option>
-                  {categoryOptions.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
-                {errors.category ? <span className="text-xs text-red-600">{errors.category}</span> : null}
-              </label>
+              <div className="grid gap-4 md:grid-cols-3">
+                <label className="grid gap-2 text-sm font-medium text-slate-700">
+                  類別
+                  <select
+                    className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    onChange={(event) =>
+                      setFormValue((current) => ({ ...current, category: event.target.value }))
+                    }
+                    value={formValue.category}
+                  >
+                    <option value="">請選擇類別</option>
+                    {categoryOptions.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.category ? <span className="text-xs text-red-600">{errors.category}</span> : null}
+                </label>
 
-              <label className="grid gap-2 text-sm font-medium text-slate-700">
-                交易類型
-                <select
-                  className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  onChange={(event) =>
-                    setFormValue((current) => ({
-                      ...current,
-                      type: event.target.value as TransactionRecord["type"],
-                    }))
-                  }
-                  value={formValue.type}
-                >
-                  <option value="buy">買進</option>
-                  <option value="sell">賣出</option>
-                </select>
-              </label>
+                <label className="grid gap-2 text-sm font-medium text-slate-700">
+                  買賣
+                  <select
+                    className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    onChange={(event) =>
+                      setFormValue((current) => ({
+                        ...current,
+                        type: event.target.value as TransactionRecord["type"],
+                      }))
+                    }
+                    value={formValue.type}
+                  >
+                    <option value="buy">買進</option>
+                    <option value="sell">賣出</option>
+                  </select>
+                </label>
 
-              <div className="grid gap-4 sm:grid-cols-2">
                 <label className="grid gap-2 text-sm font-medium text-slate-700">
                   股數
                   <input
@@ -398,7 +398,9 @@ export default function TransactionsPage({
                   />
                   {errors.shares ? <span className="text-xs text-red-600">{errors.shares}</span> : null}
                 </label>
+              </div>
 
+              <div className="grid gap-4 md:grid-cols-3">
                 <label className="grid gap-2 text-sm font-medium text-slate-700">
                   成交價
                   <input
@@ -413,9 +415,6 @@ export default function TransactionsPage({
                   />
                   {errors.price ? <span className="text-xs text-red-600">{errors.price}</span> : null}
                 </label>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
                 <label className="grid gap-2 text-sm font-medium text-slate-700">
                   手續費
                   <input
@@ -430,7 +429,6 @@ export default function TransactionsPage({
                   />
                   {errors.fee ? <span className="text-xs text-red-600">{errors.fee}</span> : null}
                 </label>
-
                 <label className="grid gap-2 text-sm font-medium text-slate-700">
                   稅
                   <input
