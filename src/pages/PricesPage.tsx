@@ -5,7 +5,7 @@ import type {
   PriceRecordInput,
   UpsertManyPriceRecordsResult,
 } from "../hooks/usePriceRecords";
-import { formatCurrency, formatPercent, formatShares } from "../lib/format";
+import { formatCurrency, formatPercent } from "../lib/format";
 import {
   parseDailyPriceImportText,
   type PriceImportRow,
@@ -45,7 +45,6 @@ type PricesPageProps = {
   addPriceRecord: (input: PriceRecordInput) => void;
   updatePriceRecord: (id: string, input: PriceRecordInput) => void;
   deletePriceRecord: (id: string) => void;
-  upsertLatestPrice: (input: PriceRecordInput) => void;
   upsertManyPriceRecords: (
     records: PriceRecordInput[],
     options: { replaceSameDateSymbol: boolean },
@@ -72,15 +71,13 @@ export default function PricesPage({
   addPriceRecord,
   updatePriceRecord,
   deletePriceRecord,
-  upsertLatestPrice,
   upsertManyPriceRecords,
   resetPriceRecords,
 }: PricesPageProps) {
   const [formValue, setFormValue] = useState<PriceRecordInput>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
-  const [quickPrices, setQuickPrices] = useState<Record<string, string>>({});
-  const [quickDates, setQuickDates] = useState<Record<string, string>>({});
+  const [isManualManagementOpen, setIsManualManagementOpen] = useState(false);
   const [priceImportText, setPriceImportText] = useState("");
   const [priceImportRows, setPriceImportRows] = useState<PriceImportRow[]>([]);
   const [priceImportError, setPriceImportError] = useState("");
@@ -146,6 +143,7 @@ export default function PricesPage({
   };
 
   const handleEdit = (record: PriceRecord) => {
+    setIsManualManagementOpen(true);
     setEditingId(record.id);
     setFormValue({
       symbol: record.symbol,
@@ -181,29 +179,6 @@ export default function PricesPage({
       resetPriceRecords();
       handleCancelEdit();
     }
-  };
-
-  const handleQuickUpdate = (position: CalculatedPosition) => {
-    const price = Number(quickPrices[position.symbol]);
-    const date = quickDates[position.symbol] || today;
-
-    if (!Number.isFinite(price) || price <= 0) {
-      window.alert("請輸入大於 0 的價格。");
-      return;
-    }
-
-    upsertLatestPrice({
-      symbol: position.symbol,
-      name: position.name,
-      price,
-      date,
-      sourceType: "manual",
-      source: "手動輸入",
-      note: "由快速更新建立",
-    });
-
-    setQuickPrices((current) => ({ ...current, [position.symbol]: "" }));
-    setQuickDates((current) => ({ ...current, [position.symbol]: date }));
   };
 
   const handleParsePriceImportText = (text = priceImportText) => {
@@ -297,12 +272,15 @@ export default function PricesPage({
 
   return (
     <main className="min-h-screen bg-stone-100 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+      <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-6">
         <header className="flex flex-col gap-3 py-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="mt-2 text-3xl font-semibold tracking-normal text-slate-950">
               價格表
             </h1>
+            <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
+              查看已儲存的價格資料。更新目前持股價格請回到我的持股。
+            </p>
           </div>
           <button
             className="w-full rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700 shadow-sm transition hover:bg-red-100 sm:w-auto"
@@ -312,10 +290,6 @@ export default function PricesPage({
             清空價格資料
           </button>
         </header>
-
-        <section className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-950 sm:p-5">
-          管理收盤價。缺少價格時，市值與比例會顯示為待更新。
-        </section>
 
         <section className="grid gap-4 sm:grid-cols-3">
           <StatCard
@@ -331,9 +305,21 @@ export default function PricesPage({
           <StatCard
             label="交易持股標的"
             value={`${positions.filter((position) => position.shares > 0).length} 檔`}
-            helperText="可用快速更新補價"
+            helperText="我的持股可更新"
           />
         </section>
+
+        <details
+          className="rounded-lg border border-stone-200 bg-stone-50 p-4 shadow-sm sm:p-5"
+          onToggle={(event) =>
+            setIsManualManagementOpen(event.currentTarget.open)
+          }
+          open={isManualManagementOpen || editingId !== null}
+        >
+          <summary className="cursor-pointer text-base font-semibold text-slate-950">
+            手動管理價格
+          </summary>
+          <div className="mt-5 grid gap-6">
 
         <SectionCard
           title="更新收盤價"
@@ -599,10 +585,10 @@ export default function PricesPage({
           </div>
         </SectionCard>
 
-        <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
+        <div className="grid gap-6">
           <SectionCard
             title={editingId ? "編輯價格" : "新增價格"}
-            description="同一代號可以保留多個日期的價格，系統會自動使用最新日期。"
+            description="作為手動補價或修正資料的備用方式。"
           >
             <form className="grid gap-4" onSubmit={handleSubmit}>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -730,137 +716,13 @@ export default function PricesPage({
             </form>
           </SectionCard>
 
-          <SectionCard
-            title="快速更新目前持股價格"
-            description="列出交易紀錄推算後仍持有的標的。"
-          >
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left text-sm">
-                <thead>
-                  <tr className="border-b border-stone-200 text-slate-500">
-                    <th className="pb-3 font-medium">代號</th>
-                    <th className="pb-3 font-medium">名稱</th>
-                    <th className="pb-3 text-right font-medium">股數</th>
-                    <th className="pb-3 text-right font-medium">目前價格</th>
-                    <th className="pb-3 font-medium">價格日期</th>
-                    <th className="pb-3 font-medium">新價格</th>
-                    <th className="pb-3 font-medium">新日期</th>
-                    <th className="pb-3 text-right font-medium">操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {positions
-                    .filter((position) => position.shares > 0)
-                    .map((position) => {
-                      const latestPrice = latestPriceMap.get(
-                        position.symbol.toUpperCase(),
-                      );
-
-                      return (
-                        <tr
-                          className="border-b border-stone-100 last:border-0"
-                          key={position.symbol}
-                        >
-                          <td className="py-4 font-semibold text-slate-950">
-                            {position.symbol}
-                          </td>
-                          <td className="py-4 text-slate-700">{position.name}</td>
-                          <td className="py-4 text-right text-slate-600">
-                            {formatShares(position.shares)}
-                          </td>
-                          <td className="py-4 text-right text-slate-600">
-                            {latestPrice
-                              ? formatCurrency(latestPrice.price)
-                              : "缺少價格"}
-                          </td>
-                          <td className="py-4 text-slate-600">
-                            {latestPrice?.date ?? "-"}
-                          </td>
-                          <td className="py-4">
-                            <input
-                              className="w-28 rounded-lg border border-stone-300 bg-white px-3 py-2 text-slate-950 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                              min="0"
-                              onChange={(event) =>
-                                setQuickPrices((current) => ({
-                                  ...current,
-                                  [position.symbol]: event.target.value,
-                                }))
-                              }
-                              step="0.01"
-                              type="number"
-                              value={quickPrices[position.symbol] ?? ""}
-                            />
-                          </td>
-                          <td className="py-4">
-                            <input
-                              className="w-36 rounded-lg border border-stone-300 bg-white px-3 py-2 text-slate-950 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                              onChange={(event) =>
-                                setQuickDates((current) => ({
-                                  ...current,
-                                  [position.symbol]: event.target.value,
-                                }))
-                              }
-                              type="date"
-                              value={quickDates[position.symbol] ?? today}
-                            />
-                          </td>
-                          <td className="py-4 text-right">
-                            <button
-                              className="rounded-lg bg-blue-700 px-3 py-2 text-sm font-semibold text-white transition hover:bg-blue-800"
-                              onClick={() => handleQuickUpdate(position)}
-                              type="button"
-                            >
-                              更新價格
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
-            </div>
-          </SectionCard>
         </div>
-
-        <SectionCard title="最新價格摘要">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-sm">
-              <thead>
-                <tr className="border-b border-stone-200 text-slate-500">
-                  <th className="pb-3 font-medium">代號</th>
-                  <th className="pb-3 font-medium">名稱</th>
-                  <th className="pb-3 text-right font-medium">最新價格</th>
-                  <th className="pb-3 font-medium">日期</th>
-                  <th className="pb-3 font-medium">來源</th>
-                </tr>
-              </thead>
-              <tbody>
-                {latestPrices.map((record) => (
-                  <tr
-                    className="border-b border-stone-100 last:border-0"
-                    key={record.symbol}
-                  >
-                    <td className="py-4 font-semibold text-slate-950">
-                      {record.symbol}
-                    </td>
-                    <td className="py-4 text-slate-700">{record.name ?? "-"}</td>
-                    <td className="py-4 text-right font-medium text-slate-950">
-                      {formatCurrency(record.price)}
-                    </td>
-                    <td className="py-4 text-slate-600">{record.date}</td>
-                    <td className="py-4 text-slate-600">
-                      {record.source ?? "-"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
-        </SectionCard>
+        </details>
 
-        <SectionCard title="價格紀錄" description="依日期由新到舊排序。">
+        <SectionCard title="已儲存價格" description="依日期由新到舊排序。">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-left text-sm">
+            <table className="w-full min-w-[1040px] text-left text-sm">
               <thead>
                 <tr className="border-b border-stone-200 text-slate-500">
                   <th className="pb-3 font-medium">日期</th>
@@ -868,6 +730,7 @@ export default function PricesPage({
                   <th className="pb-3 font-medium">名稱</th>
                   <th className="pb-3 text-right font-medium">價格</th>
                   <th className="pb-3 font-medium">來源</th>
+                  <th className="pb-3 font-medium">狀態</th>
                   <th className="pb-3 font-medium">備註</th>
                   <th className="pb-3 text-right font-medium">操作</th>
                 </tr>
@@ -887,6 +750,9 @@ export default function PricesPage({
                       {formatCurrency(record.price)}
                     </td>
                     <td className="py-4 text-slate-600">{record.source ?? "-"}</td>
+                    <td className="py-4 text-slate-600">
+                      {record.sourceType === "provider" ? "自動匯入" : "手動"}
+                    </td>
                     <td className="max-w-48 truncate py-4 text-slate-500">
                       {record.note ?? "-"}
                     </td>
