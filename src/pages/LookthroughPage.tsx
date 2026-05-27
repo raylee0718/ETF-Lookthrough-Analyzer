@@ -109,7 +109,7 @@ export default function LookthroughPage({
 
   return (
     <main className="min-h-screen bg-stone-100 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+      <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-6">
         <header className="py-3">
           <h1 className="mt-2 text-3xl font-semibold tracking-normal text-slate-950">
             穿透分析
@@ -120,7 +120,7 @@ export default function LookthroughPage({
         </header>
 
         <section className="rounded-lg border border-blue-200 bg-blue-50 p-5 text-blue-950">
-          <h2 className="text-base font-semibold">{portfolioSource.modeLabel}</h2>
+          <h2 className="text-base font-semibold">分析資料</h2>
           <div className="mt-2 grid gap-2 text-sm leading-6">
             {portfolioSource.dataQualityNotes.map((note) => (
               <p key={note}>{note}</p>
@@ -195,7 +195,7 @@ export default function LookthroughPage({
           <StatCard
             label="分析用總市值"
             value={formatCurrency(portfolioSource.totalMarketValue)}
-            helperText={portfolioSource.modeLabel}
+            helperText="已納入穿透分析"
           />
         </section>
 
@@ -219,14 +219,11 @@ export default function LookthroughPage({
           title="底層股票曝險"
           description="依投組佔比由高到低排列。"
         >
-          <div className="mb-4 grid gap-4 rounded-lg border border-stone-200 bg-stone-50 p-4">
-            <div>
-              <h3 className="text-base font-semibold text-slate-950">顯示門檻</h3>
-              <p className="mt-1 text-sm leading-6 text-slate-600">
-                低於門檻的成分會彙總為其他，不影響總計。
-              </p>
-            </div>
-            <div className="grid gap-3 md:grid-cols-4 md:items-end">
+          <details className="mb-4 rounded-lg border border-stone-200 bg-stone-50 p-4">
+            <summary className="cursor-pointer text-base font-semibold text-slate-950">
+              顯示設定
+            </summary>
+            <div className="mt-4 grid gap-3 md:grid-cols-4 md:items-end">
               <label className="grid gap-2 text-sm font-medium text-slate-700">
                 最小顯示金額
                 <div className="flex items-center rounded-lg border border-stone-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100">
@@ -289,7 +286,7 @@ export default function LookthroughPage({
                 00646 / S&P 500 類 ETF 成分較多，建議使用顯示門檻與「其他美股成分」彙總查看。
               </p>
             ) : null}
-          </div>
+          </details>
 
           {concentrationWarnings.length > 0 ? (
             <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
@@ -324,7 +321,7 @@ export default function LookthroughPage({
             <table className="w-full min-w-[980px] text-left text-sm">
               <thead>
                 <tr className="border-b border-stone-200 text-slate-500">
-                  <th className="sticky left-0 z-[1] bg-white pb-3 pr-4 font-semibold text-slate-700">股票代號</th>
+                  <th className="bg-white pb-3 pr-4 font-semibold text-slate-700 md:sticky md:left-0 md:z-[1]">股票代號</th>
                   <th className="pb-3 font-medium">股票名稱</th>
                   <th className="pb-3 text-right font-medium">穿透後金額</th>
                   <th className="pb-3 text-right font-medium">投資組合佔比</th>
@@ -339,7 +336,7 @@ export default function LookthroughPage({
                     className="border-b border-stone-100 align-top last:border-0"
                     key={exposure.stockSymbol}
                   >
-                    <td className="sticky left-0 z-[1] bg-white py-4 pr-4 font-semibold text-slate-950">
+                    <td className="bg-white py-4 pr-4 font-semibold text-slate-950 md:sticky md:left-0 md:z-[1]">
                       {exposure.stockSymbol}
                     </td>
                     <td className="py-4 text-slate-700">

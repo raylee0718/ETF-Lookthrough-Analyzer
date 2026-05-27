@@ -217,7 +217,7 @@ export default function TransactionsPage({
 
   return (
     <main className="min-h-screen bg-stone-100 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+      <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-6">
         <header className="flex flex-col gap-3 py-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="mt-2 text-3xl font-semibold tracking-normal text-slate-950">
@@ -469,7 +469,7 @@ export default function TransactionsPage({
               <table className="w-full min-w-[1120px] whitespace-nowrap text-left text-sm">
                 <thead>
                   <tr className="border-b border-stone-200 text-slate-500">
-                    <th className="sticky left-0 z-[1] bg-white pb-3 pr-4 font-semibold text-slate-700">代號</th>
+                    <th className="bg-white pb-3 pr-4 font-semibold text-slate-700 md:sticky md:left-0 md:z-[1]">代號</th>
                     <th className="pb-3 font-medium">名稱</th>
                     <th className="pb-3 font-medium">類別</th>
                     <th className="pb-3 text-right font-medium">目前股數</th>
@@ -490,7 +490,7 @@ export default function TransactionsPage({
                       className="border-b border-stone-100 last:border-0"
                       key={position.symbol}
                     >
-                      <td className="sticky left-0 z-[1] bg-white py-4 pr-4 font-semibold text-slate-950">
+                      <td className="bg-white py-4 pr-4 font-semibold text-slate-950 md:sticky md:left-0 md:z-[1]">
                         {position.symbol}
                       </td>
                       <td className="py-4 text-slate-700">{position.name}</td>
@@ -563,50 +563,52 @@ export default function TransactionsPage({
           </SectionCard>
         </div>
 
-        <SectionCard
-          title="貼上交易紀錄"
-          description="可貼上多筆交易，每列一筆，欄位順序：日期、代號、名稱、類別、買賣、股數、成交價、手續費、交易稅、備註。"
-        >
-          <div className="grid gap-5">
-            <label className="grid gap-2 text-sm font-medium text-slate-700">
-              貼上內容
-              <textarea
-                className="min-h-48 rounded-lg border border-stone-300 bg-white px-3 py-2.5 font-mono text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 sm:min-h-40"
-                onChange={(event) => setImportText(event.target.value)}
-                placeholder={transactionImportSample}
-                value={importText}
-              />
-              <span className="text-xs font-normal leading-5 text-slate-500">
-                預覽不會新增資料，確認後才會匯入有效交易。
-              </span>
-            </label>
+        <details className="rounded-lg border border-stone-200 bg-stone-50 p-4 shadow-sm sm:p-5">
+          <summary className="cursor-pointer text-base font-semibold text-slate-950">
+            批次匯入
+          </summary>
+          <div className="mt-5 grid gap-5">
+            <SectionCard
+              title="貼上交易紀錄"
+              description="一次匯入多筆交易。預覽確認後才會新增資料。"
+            >
+              <div className="grid gap-5">
+                <label className="grid gap-2 text-sm font-medium text-slate-700">
+                  貼上內容
+                  <textarea
+                    className="min-h-48 rounded-lg border border-stone-300 bg-white px-3 py-2.5 font-mono text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 sm:min-h-40"
+                    onChange={(event) => setImportText(event.target.value)}
+                    placeholder={transactionImportSample}
+                    value={importText}
+                  />
+                </label>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <button
-                  className="rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
-                  onClick={() => handleParseImportText()}
-                  type="button"
-                >
-                  預覽匯入
-                </button>
-                <button
-                  className="rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-stone-50"
-                  onClick={handleClearImportPreview}
-                  type="button"
-                >
-                  清除
-                </button>
-                <button
-                  className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-stone-300"
-                  disabled={!hasValidImportRows}
-                  onClick={handleImportValidRows}
-                  type="button"
-                >
-                  確認匯入
-                </button>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button
+                    className="rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
+                    onClick={() => handleParseImportText()}
+                    type="button"
+                  >
+                    預覽匯入
+                  </button>
+                  <button
+                    className="rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-stone-50"
+                    onClick={handleClearImportPreview}
+                    type="button"
+                  >
+                    清除
+                  </button>
+                  <button
+                    className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-stone-300"
+                    disabled={!hasValidImportRows}
+                    onClick={handleImportValidRows}
+                    type="button"
+                  >
+                    確認匯入
+                  </button>
+                </div>
               </div>
-            </div>
+            </SectionCard>
 
             {importError ? (
               <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -702,7 +704,7 @@ export default function TransactionsPage({
               </div>
             ) : null}
           </div>
-        </SectionCard>
+        </details>
 
         <SectionCard title="交易明細" description="依日期由新到舊排序。">
           <div className="overflow-x-auto">
@@ -711,7 +713,7 @@ export default function TransactionsPage({
                   <tr className="border-b border-stone-200 text-slate-500">
                   <th className="pb-3 font-medium">日期</th>
                   <th className="pb-3 font-medium">買進/賣出</th>
-                    <th className="sticky left-0 z-[1] bg-white pb-3 font-medium">代號</th>
+                    <th className="bg-white pb-3 font-medium md:sticky md:left-0 md:z-[1]">代號</th>
                   <th className="pb-3 font-medium">名稱</th>
                   <th className="pb-3 text-right font-medium">股數</th>
                   <th className="pb-3 text-right font-medium">成交價</th>
@@ -739,7 +741,7 @@ export default function TransactionsPage({
                         {getTypeLabel(transaction.type)}
                       </span>
                     </td>
-                    <td className="sticky left-0 z-[1] bg-white py-4 font-semibold text-slate-950">
+                    <td className="bg-white py-4 font-semibold text-slate-950 md:sticky md:left-0 md:z-[1]">
                       {transaction.symbol}
                     </td>
                     <td className="py-4 text-slate-700">{transaction.name}</td>

@@ -192,7 +192,7 @@ export default function BackupPage({
     },
     {
       label: "穿透曝險 CSV",
-      description: "依目前資料來源模式計算後匯出",
+      description: "依目前分析資料計算後匯出",
       filename: "lookthrough-exposures",
       content: () => lookthroughExposuresToCsv(lookthroughExposures),
     },
@@ -212,7 +212,7 @@ export default function BackupPage({
 
   return (
     <main className="min-h-screen bg-stone-100 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+      <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-6">
         <header className="py-3">
           <h1 className="mt-2 text-3xl font-semibold tracking-normal text-slate-950">
             備份資料
@@ -366,14 +366,14 @@ export default function BackupPage({
           </SectionCard>
         </div>
 
-        <SectionCard
-          title="CSV 匯出"
-          description="下載個別資料表或分析結果。"
-        >
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <details className="rounded-lg border border-stone-200 bg-stone-50 p-4 shadow-sm sm:p-5">
+          <summary className="cursor-pointer text-base font-semibold text-slate-950">
+            CSV 匯出
+          </summary>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {csvExports.map((item) => (
               <div
-                className="rounded-lg border border-stone-200 bg-stone-50 p-4"
+                className="rounded-lg border border-stone-200 bg-white p-4"
                 key={item.filename}
               >
                 <h3 className="font-semibold text-slate-950">{item.label}</h3>
@@ -396,7 +396,7 @@ export default function BackupPage({
               </div>
             ))}
           </div>
-        </SectionCard>
+        </details>
       </div>
     </main>
   );
