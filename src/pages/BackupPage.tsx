@@ -1,4 +1,4 @@
-import { ChangeEvent, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import SectionCard from "../components/SectionCard";
 import StatCard from "../components/StatCard";
 import { useAppSettings } from "../hooks/useAppSettings";
@@ -26,6 +26,13 @@ import { getPortfolioHoldingsForAnalysis } from "../lib/portfolioSource";
 import type { EtfConstituent, PortfolioHolding } from "../types/portfolio";
 import type { PriceRecord } from "../types/prices";
 import type { TransactionRecord } from "../types/transactions";
+import {
+  loadGoogleGsiScript,
+  authorizeGoogleDrive,
+  findBackupFile,
+  downloadBackupFile,
+  uploadBackupFile,
+} from "../lib/googleDriveSync";
 
 type BackupPageProps = {
   holdings: PortfolioHolding[];
@@ -58,6 +65,152 @@ export default function BackupPage({
   const [backupJsonText, setBackupJsonText] = useState("");
   const [importError, setImportError] = useState("");
   const [importSuccess, setImportSuccess] = useState("");
+
+  // Google Drive Sync States
+  const [gdriveClientId, setGdriveClientId] = useState(() => {
+    return window.localStorage.getItem("etf-lookthrough-gdrive-client-id") ?? "";
+  });
+  const [gdriveAccessToken, setGdriveAccessToken] = useState("");
+  const [gdriveStatus, setGdriveStatus] = useState<"idle" | "connecting" | "connected" | "failed">("idle");
+  const [gdriveFileMeta, setGdriveFileMeta] = useState<{ id: string; modifiedTime: string } | null>(null);
+  const [gdriveSyncLoading, setGdriveSyncLoading] = useState(false);
+  const [gdriveMessage, setGdriveMessage] = useState("");
+  const [gdriveErrorMessage, setGdriveErrorMessage] = useState("");
+  const [showGdriveTutorial, setShowGdriveTutorial] = useState(false);
+  const [cloudPreview, setCloudPreview] = useState<BackupPreview | null>(null);
+  const [cloudPendingBackup, setCloudPendingBackup] = useState<BackupFile | null>(null);
+
+  // Load Google Identity Services Script on Mount
+  useEffect(() => {
+    loadGoogleGsiScript().catch((err) => {
+      console.warn("Failed to load Google GSI library:", err);
+    });
+  }, []);
+
+  const handleConnectGDrive = async () => {
+    setGdriveMessage("");
+    setGdriveErrorMessage("");
+    setCloudPreview(null);
+    setCloudPendingBackup(null);
+
+    if (!gdriveClientId.trim()) {
+      setGdriveErrorMessage("請輸入您的 Google Client ID。");
+      return;
+    }
+
+    // Save Client ID
+    window.localStorage.setItem("etf-lookthrough-gdrive-client-id", gdriveClientId.trim());
+    setGdriveStatus("connecting");
+
+    try {
+      // 1. Authorize
+      const token = await authorizeGoogleDrive(gdriveClientId);
+      setGdriveAccessToken(token);
+      setGdriveStatus("connected");
+
+      // 2. Search for backup file
+      setGdriveSyncLoading(true);
+      const fileMeta = await findBackupFile(token);
+      setGdriveFileMeta(fileMeta);
+
+      if (fileMeta) {
+        setGdriveMessage("成功連線並已找到雲端備份檔。");
+      } else {
+        setGdriveMessage("成功連線！您的雲端硬碟中目前尚無備份，您可以點擊「上傳資料」建立一個。");
+      }
+    } catch (err) {
+      setGdriveStatus("failed");
+      setGdriveErrorMessage(err instanceof Error ? err.message : String(err));
+    } finally {
+      setGdriveSyncLoading(false);
+    }
+  };
+
+  const handleUploadToCloud = async () => {
+    setGdriveMessage("");
+    setGdriveErrorMessage("");
+
+    if (!gdriveAccessToken) {
+      setGdriveErrorMessage("尚未連線，請先連線您的 Google Drive。");
+      return;
+    }
+
+    setGdriveSyncLoading(true);
+    try {
+      const backup = createBackupFile({
+        manualHoldings: holdings,
+        etfConstituents: constituents,
+        transactions,
+        priceRecords,
+        appSettings: settings,
+      });
+
+      await uploadBackupFile(
+        gdriveAccessToken,
+        backup,
+        gdriveFileMeta?.id || undefined
+      );
+
+      // Re-fetch file metadata to get latest modification time
+      const nextFileMeta = await findBackupFile(gdriveAccessToken);
+      setGdriveFileMeta(nextFileMeta);
+      setGdriveMessage("備份資料已成功上傳至您的 Google Drive！");
+    } catch (err) {
+      setGdriveErrorMessage(err instanceof Error ? err.message : String(err));
+    } finally {
+      setGdriveSyncLoading(false);
+    }
+  };
+
+  const handleRestoreFromCloud = async () => {
+    setGdriveMessage("");
+    setGdriveErrorMessage("");
+    setCloudPreview(null);
+    setCloudPendingBackup(null);
+
+    if (!gdriveAccessToken || !gdriveFileMeta) {
+      setGdriveErrorMessage("雲端硬碟中找不到可下載的備份。");
+      return;
+    }
+
+    setGdriveSyncLoading(true);
+    try {
+      const fileContent = await downloadBackupFile(gdriveAccessToken, gdriveFileMeta.id);
+      const result = validateBackupFile(fileContent);
+
+      if (!result.backup || !result.preview) {
+        setGdriveErrorMessage(result.error ?? "下載的雲端備份檔格式不正確。");
+        return;
+      }
+
+      setCloudPendingBackup(result.backup);
+      setCloudPreview(result.preview);
+      setGdriveMessage("成功下載備份！請在下方預覽備份內容並點擊「確認雲端還原」套用。");
+    } catch (err) {
+      setGdriveErrorMessage(err instanceof Error ? err.message : String(err));
+    } finally {
+      setGdriveSyncLoading(false);
+    }
+  };
+
+  const handleRestoreCloudBackup = () => {
+    if (!cloudPendingBackup) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "確認還原雲端備份？這將會完全取代您目前的本機持股與交易紀錄！"
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    restoreBackupToLocalStorage(cloudPendingBackup);
+    setImportSuccess("雲端備份還原成功！請重新整理網頁套用變更。");
+    setCloudPreview(null);
+    setCloudPendingBackup(null);
+  };
 
   const holdingsForAnalysis = useMemo(
     () =>
@@ -365,6 +518,171 @@ export default function BackupPage({
             </div>
           </SectionCard>
         </div>
+
+        {/* Google Drive 雲端備份與同步 */}
+        <SectionCard
+          title="個人雲端硬碟同步 (Google Drive)"
+          description="將您的完整資料（包含交易、持股與成分股）儲存在您自己私人的 Google 雲端硬碟，維護極致隱私並實現跨裝置同步。"
+        >
+          <div className="grid gap-5">
+            <div className="grid gap-4 md:grid-cols-3 md:items-end">
+              <label className="grid gap-2 text-sm font-medium text-slate-700 md:col-span-2">
+                Google Client ID
+                <input
+                  type="text"
+                  className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-sm font-mono"
+                  placeholder="請貼上您申請的 Google Client ID"
+                  value={gdriveClientId}
+                  onChange={(e) => setGdriveClientId(e.target.value)}
+                  disabled={gdriveStatus === "connecting" || gdriveStatus === "connected"}
+                />
+              </label>
+
+              <div className="flex gap-2">
+                {gdriveStatus !== "connected" ? (
+                  <button
+                    className="flex-1 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:bg-stone-300 disabled:cursor-not-allowed"
+                    onClick={handleConnectGDrive}
+                    disabled={!gdriveClientId.trim() || gdriveStatus === "connecting" || gdriveSyncLoading}
+                    type="button"
+                  >
+                    {gdriveStatus === "connecting" ? "連線中..." : "連線 Google Drive"}
+                  </button>
+                ) : (
+                  <button
+                    className="flex-1 rounded-lg border border-stone-300 bg-stone-100 px-4 py-2.5 text-sm font-semibold text-slate-600 transition"
+                    onClick={() => {
+                      setGdriveAccessToken("");
+                      setGdriveStatus("idle");
+                      setGdriveFileMeta(null);
+                      setGdriveMessage("");
+                      setCloudPreview(null);
+                    }}
+                    type="button"
+                  >
+                    中斷連線
+                  </button>
+                )}
+                <button
+                  className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-stone-50"
+                  onClick={() => setShowGdriveTutorial(!showGdriveTutorial)}
+                  type="button"
+                >
+                  {showGdriveTutorial ? "收合教學" : "如何申請？"}
+                </button>
+              </div>
+            </div>
+
+            {/* 申請教學 */}
+            {showGdriveTutorial ? (
+              <div className="rounded-lg border border-stone-200 bg-stone-50 p-4 text-xs leading-5 text-slate-600 grid gap-2.5">
+                <p className="font-semibold text-slate-950 text-sm">💡 2 分鐘快速免費申請 Client ID 指引</p>
+                <ol className="list-decimal pl-4 grid gap-1.5">
+                  <li>
+                    前往 <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-blue-700 underline font-medium">Google Cloud Console 認證頁面</a>。
+                  </li>
+                  <li>建立或選擇一個專案，點擊首頁的<strong>「OAuth 同意畫面」</strong>配置，選擇「External」並設定必填名稱與電子信箱。</li>
+                  <li>
+                    前往<strong>「憑證」</strong>頁面，點擊「建立憑證」並選擇 <strong>「OAuth 用戶端 ID (OAuth Client ID)」</strong>。
+                  </li>
+                  <li>
+                    應用程式類型選擇 <strong>「Web 應用程式 (Web Application)」</strong>。
+                  </li>
+                  <li>
+                    在「已授權的 JavaScript 來源 (Authorized JavaScript origins)」區塊中加入以下兩個 URL：
+                    <ul className="list-disc pl-4 mt-1 font-mono text-[10px] bg-white p-1 rounded border border-stone-100">
+                      <li>http://localhost:5173 <span className="text-slate-400 font-sans">（本地開發）</span></li>
+                      <li>{window.location.origin} <span className="text-slate-400 font-sans">（您目前的 Vercel 或主機網址）</span></li>
+                    </ul>
+                  </li>
+                  <li>點擊「建立」，複製生成的<strong>「用戶端 ID」</strong>，將其黏貼到上方的輸入框中，點擊連線即可！</li>
+                </ol>
+              </div>
+            ) : null}
+
+            {/* 提示訊息 */}
+            {gdriveMessage ? (
+              <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-800 leading-6">
+                {gdriveMessage}
+              </div>
+            ) : null}
+
+            {gdriveErrorMessage ? (
+              <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-800 leading-6">
+                {gdriveErrorMessage}
+              </div>
+            ) : null}
+
+            {/* 同步按鈕控制台 (僅在已連線時顯示) */}
+            {gdriveStatus === "connected" ? (
+              <div className="rounded-xl border border-stone-200 bg-stone-50/50 p-4 grid gap-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h4 className="font-semibold text-sm text-slate-950 flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-ping inline-block"></span>
+                      雲端連線狀態：已授權存取個人雲端硬碟
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-1">
+                      備份檔名：<span className="font-mono">etf_lookthrough_backup.json</span>（將儲存於您的雲端根目錄）
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      雲端最近備份日期：
+                      <span className="font-semibold text-slate-800">
+                        {gdriveFileMeta ? formatBackupDate(gdriveFileMeta.modifiedTime) : "無雲端檔案"}
+                      </span>
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      className="rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:bg-stone-300 disabled:cursor-not-allowed"
+                      onClick={handleUploadToCloud}
+                      disabled={gdriveSyncLoading}
+                      type="button"
+                    >
+                      {gdriveSyncLoading ? "處理中..." : gdriveFileMeta ? "上傳覆蓋雲端" : "建立雲端備份"}
+                    </button>
+                    {gdriveFileMeta ? (
+                      <button
+                        className="rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-stone-50 disabled:bg-stone-100 disabled:text-slate-400"
+                        onClick={handleRestoreFromCloud}
+                        disabled={gdriveSyncLoading}
+                        type="button"
+                      >
+                        {gdriveSyncLoading ? "處理中..." : "從雲端下載還原"}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+
+                {/* 雲端備份還原預覽 */}
+                {cloudPreview ? (
+                  <div className="rounded-lg border border-stone-200 bg-white p-4 mt-2">
+                    <h3 className="font-semibold text-slate-950 text-sm">雲端備份還原預覽</h3>
+                    <div className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
+                      <p>備份時間：{formatBackupDate(cloudPreview.exportedAt)}</p>
+                      <p>手動持股：{cloudPreview.manualHoldingsCount} 筆</p>
+                      <p>ETF 成分股組數：{cloudPreview.etfConstituentSetCount} 組</p>
+                      <p>交易紀錄：{cloudPreview.transactionsCount} 筆</p>
+                      <p>價格資料：{cloudPreview.priceRecordsCount} 筆</p>
+                      <p>使用設定：{cloudPreview.hasAppSettings ? "包含" : "不包含"}</p>
+                    </div>
+                    <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-950 leading-5">
+                      ⚠️ 確定雲端還原後，您目前的瀏覽器本地持股、交易與收盤價資料將被完全覆蓋！
+                    </p>
+                    <button
+                      className="mt-3 rounded-lg bg-red-700 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-red-800"
+                      onClick={handleRestoreCloudBackup}
+                      type="button"
+                    >
+                      確認雲端還原
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </SectionCard>
 
         <details className="rounded-lg border border-stone-200 bg-stone-50 p-4 shadow-sm sm:p-5">
           <summary className="cursor-pointer text-base font-semibold text-slate-950">
