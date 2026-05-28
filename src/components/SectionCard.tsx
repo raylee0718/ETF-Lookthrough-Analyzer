@@ -12,7 +12,7 @@ export default function SectionCard({
   children,
 }: SectionCardProps) {
   return (
-    <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
+    <section className="w-full min-w-0 max-w-full overflow-hidden rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="mb-5">
         <h2 className="text-lg font-semibold text-slate-950">{title}</h2>
         {description ? (

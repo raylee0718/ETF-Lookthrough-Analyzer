@@ -288,7 +288,7 @@ export default function HoldingsPage({
 
   return (
     <main className="min-h-screen bg-stone-100 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+      <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-6">
         <header className="flex flex-col gap-3 py-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="mt-2 text-3xl font-semibold tracking-normal text-slate-950">
@@ -425,11 +425,11 @@ export default function HoldingsPage({
           description="目前價格可直接輸入，按 Enter 或離開欄位後儲存。"
           title="目前持股"
         >
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full min-w-[1180px] whitespace-nowrap text-left text-sm">
               <thead>
                 <tr className="border-b border-stone-200 text-slate-500">
-                    <th className="sticky left-0 z-[1] bg-white pb-3 pr-4 font-semibold text-slate-700">代號</th>
+                    <th className="bg-white pb-3 pr-4 font-semibold text-slate-700 md:sticky md:left-0 md:z-[1]">代號</th>
                   <th className="pb-3 font-medium">名稱</th>
                   <th className="pb-3 text-right font-medium">目前股數</th>
                   <th className="pb-3 text-right font-medium">平均成本</th>
@@ -463,12 +463,28 @@ export default function HoldingsPage({
                         ? (position.marketValue / totalMarketValue) * 100
                         : null;
 
+                    const isPnlPositive = position.unrealizedPnL > 0;
+                    const isPnlNegative = position.unrealizedPnL < 0;
+                    const pnlColorClass = isPnlPositive
+                      ? "text-emerald-700 font-medium"
+                      : isPnlNegative
+                      ? "text-red-700 font-medium"
+                      : "text-slate-600";
+
+                    const isTotalPositive = position.totalPnL > 0;
+                    const isTotalNegative = position.totalPnL < 0;
+                    const totalPnLColorClass = isTotalPositive
+                      ? "text-emerald-700 font-medium"
+                      : isTotalNegative
+                      ? "text-red-700 font-medium"
+                      : "text-slate-600";
+
                     return (
                       <tr
                         className="border-b border-stone-100 last:border-0"
                         key={position.symbol}
                       >
-                    <td className="sticky left-0 z-[1] bg-white py-4 pr-4 font-semibold text-slate-950">
+                    <td className="bg-white py-4 pr-4 font-semibold text-slate-950 md:sticky md:left-0 md:z-[1]">
                       {position.symbol}
                     </td>
                         <td className="py-4 text-slate-700">{position.name}</td>
@@ -513,17 +529,17 @@ export default function HoldingsPage({
                     <td className="py-4 text-right font-semibold text-slate-950">
                       {hasCurrentPrice ? formatCurrency(position.marketValue) : "—"}
                     </td>
-                        <td className="py-4 text-right text-slate-600">
+                        <td className={`py-4 text-right ${pnlColorClass}`}>
                           {hasCurrentPrice
                             ? formatCurrency(position.unrealizedPnL)
                             : "—"}
                         </td>
-                        <td className="py-4 text-right text-slate-600">
+                        <td className={`py-4 text-right ${pnlColorClass}`}>
                           {hasCurrentPrice
                             ? formatPercent(position.unrealizedReturnPercent)
                             : "—"}
                         </td>
-                        <td className="py-4 text-right text-slate-600">
+                        <td className={`py-4 text-right ${totalPnLColorClass}`}>
                           {hasCurrentPrice ? formatCurrency(position.totalPnL) : "—"}
                         </td>
                     <td className="py-4 text-right font-semibold text-slate-950">
@@ -537,6 +553,155 @@ export default function HoldingsPage({
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* 行動裝置卡片清單 */}
+          <div className="grid gap-4 md:hidden">
+            {activePositions.length === 0 ? (
+              <p className="py-6 text-center text-slate-500 bg-stone-50 rounded-lg">
+                尚未有目前持股。請到「交易紀錄」新增買進資料。
+              </p>
+            ) : (
+              activePositions.map((position) => {
+                const latestPrice = latestPriceMap.get(
+                  position.symbol.toUpperCase(),
+                );
+                const hasCurrentPrice = position.priceStatus === "priced";
+                const priceValue =
+                  priceDrafts[position.symbol] ??
+                  String(position.marketPrice ?? "");
+                const portfolioWeight =
+                  hasCurrentPrice && totalMarketValue > 0
+                    ? (position.marketValue / totalMarketValue) * 100
+                    : null;
+
+                const isPnlPositive = position.unrealizedPnL > 0;
+                const isPnlNegative = position.unrealizedPnL < 0;
+                const pnlColorClass = isPnlPositive
+                  ? "text-emerald-700 font-semibold"
+                  : isPnlNegative
+                  ? "text-red-700 font-semibold"
+                  : "text-slate-600";
+
+                const isTotalPositive = position.totalPnL > 0;
+                const isTotalNegative = position.totalPnL < 0;
+                const totalPnLColorClass = isTotalPositive
+                  ? "text-emerald-700 font-semibold"
+                  : isTotalNegative
+                  ? "text-red-700 font-semibold"
+                  : "text-slate-600";
+
+                return (
+                  <div
+                    key={position.symbol}
+                    className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm"
+                  >
+                    {/* 卡片標頭：代號、名稱與權重徽章 */}
+                    <div className="flex items-start justify-between gap-2 border-b border-stone-100 pb-3">
+                      <div>
+                        <span className="text-lg font-bold text-slate-950">
+                          {position.symbol}
+                        </span>
+                        <h3 className="text-sm text-slate-700 font-medium mt-0.5">
+                          {position.name}
+                        </h3>
+                      </div>
+                      {portfolioWeight !== null ? (
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-800 shrink-0">
+                          佔 {formatPercent(portfolioWeight)}
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-slate-400 shrink-0">
+                          佔比待更新
+                        </span>
+                      )}
+                    </div>
+
+                    {/* 卡片內容：股數與成本市值網格 */}
+                    <div className="grid grid-cols-2 gap-y-3 gap-x-4 py-3 text-xs border-b border-stone-100">
+                      <div>
+                        <p className="text-slate-400">目前股數</p>
+                        <p className="text-sm font-medium text-slate-900 mt-0.5">
+                          {formatShares(position.shares)} 股
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400">目前價格</p>
+                        <div className="mt-1 flex flex-col gap-1">
+                          <input
+                            aria-label={`${position.symbol} 目前價格`}
+                            className="w-full rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-right text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            min="0"
+                            onBlur={() =>
+                              saveCurrentPrice(position.symbol, position.name)
+                            }
+                            onChange={(event) =>
+                              setPriceDrafts((current) => ({
+                                ...current,
+                                [position.symbol]: event.target.value,
+                              }))
+                            }
+                            onKeyDown={(event) =>
+                              handlePriceKeyDown(
+                                event,
+                                position.symbol,
+                                position.name,
+                              )
+                            }
+                            step="0.01"
+                            type="number"
+                            value={priceValue}
+                          />
+                          <span className="text-[10px] text-slate-400 text-right block pr-1">
+                            {latestPrice?.date ?? "待更新"}
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-slate-400">投入成本</p>
+                        <p className="text-sm font-medium text-slate-700 mt-0.5">
+                          {formatCurrency(position.totalCost)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400">目前市值</p>
+                        <p className="text-sm font-semibold text-slate-950 mt-0.5">
+                          {hasCurrentPrice ? formatCurrency(position.marketValue) : "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400">平均成本</p>
+                        <p className="text-sm font-medium text-slate-700 mt-0.5">
+                          {formatCurrency(position.averageCost)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* 卡片底部：損益明細 */}
+                    <div className="grid grid-cols-3 gap-2 pt-3 text-xs">
+                      <div>
+                        <p className="text-slate-400">未實現損益</p>
+                        <p className={`text-sm mt-0.5 ${pnlColorClass}`}>
+                          {hasCurrentPrice ? formatCurrency(position.unrealizedPnL) : "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400">未實現報酬</p>
+                        <p className={`text-sm mt-0.5 ${pnlColorClass}`}>
+                          {hasCurrentPrice ? formatPercent(position.unrealizedReturnPercent) : "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400">總損益</p>
+                        <p className={`text-sm mt-0.5 ${totalPnLColorClass}`}>
+                          {hasCurrentPrice ? formatCurrency(position.totalPnL) : "—"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </SectionCard>
 

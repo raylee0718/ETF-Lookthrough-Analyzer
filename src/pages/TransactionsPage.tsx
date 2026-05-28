@@ -465,27 +465,53 @@ export default function TransactionsPage({
             title="計算後持股"
             description="使用平均成本法整理部位；缺少價格時市值與未實現損益待更新。"
           >
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1120px] whitespace-nowrap text-left text-sm">
-                <thead>
-                  <tr className="border-b border-stone-200 text-slate-500">
-                    <th className="bg-white pb-3 pr-4 font-semibold text-slate-700 md:sticky md:left-0 md:z-[1]">代號</th>
-                    <th className="pb-3 font-medium">名稱</th>
-                    <th className="pb-3 font-medium">類別</th>
-                    <th className="pb-3 text-right font-medium">目前股數</th>
-                    <th className="pb-3 text-right font-medium">平均成本</th>
-                    <th className="pb-3 text-right font-medium">投入成本</th>
-                    <th className="pb-3 text-right font-medium">最新價格</th>
-                    <th className="pb-3 text-right font-semibold text-slate-700">目前市值</th>
-                    <th className="pb-3 text-right font-medium">未實現損益</th>
-                    <th className="pb-3 text-right font-medium">未實現報酬率</th>
-                    <th className="pb-3 text-right font-medium">已實現損益</th>
-                    <th className="pb-3 text-right font-medium">總損益</th>
-                    <th className="pb-3 font-medium">價格狀態</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pricedPositions.map((position) => (
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full min-w-[1120px] whitespace-nowrap text-left text-sm">
+              <thead>
+                <tr className="border-b border-stone-200 text-slate-500">
+                  <th className="bg-white pb-3 pr-4 font-semibold text-slate-700 md:sticky md:left-0 md:z-[1]">代號</th>
+                  <th className="pb-3 font-medium">名稱</th>
+                  <th className="pb-3 font-medium">類別</th>
+                  <th className="pb-3 text-right font-medium">目前股數</th>
+                  <th className="pb-3 text-right font-medium">平均成本</th>
+                  <th className="pb-3 text-right font-medium">投入成本</th>
+                  <th className="pb-3 text-right font-medium">最新價格</th>
+                  <th className="pb-3 text-right font-semibold text-slate-700">目前市值</th>
+                  <th className="pb-3 text-right font-medium">未實現損益</th>
+                  <th className="pb-3 text-right font-medium">未實現報酬率</th>
+                  <th className="pb-3 text-right font-medium">已實現損益</th>
+                  <th className="pb-3 text-right font-medium">總損益</th>
+                  <th className="pb-3 font-medium">價格狀態</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pricedPositions.map((position) => {
+                  const hasCurrentPrice = position.priceStatus === "priced";
+                  const isPnlPositive = position.unrealizedPnL > 0;
+                  const isPnlNegative = position.unrealizedPnL < 0;
+                  const pnlColorClass = isPnlPositive
+                    ? "text-emerald-700 font-medium"
+                    : isPnlNegative
+                    ? "text-red-700 font-medium"
+                    : "text-slate-600";
+
+                  const isRealizedPositive = position.realizedPnL > 0;
+                  const isRealizedNegative = position.realizedPnL < 0;
+                  const realizedColorClass = isRealizedPositive
+                    ? "text-emerald-700 font-medium"
+                    : isRealizedNegative
+                    ? "text-red-700 font-medium"
+                    : "text-slate-600";
+
+                  const isTotalPositive = position.totalPnL > 0;
+                  const isTotalNegative = position.totalPnL < 0;
+                  const totalColorClass = isTotalPositive
+                    ? "text-emerald-700 font-medium"
+                    : isTotalNegative
+                    ? "text-red-700 font-medium"
+                    : "text-slate-600";
+
+                  return (
                     <tr
                       className="border-b border-stone-100 last:border-0"
                       key={position.symbol}
@@ -510,56 +536,157 @@ export default function TransactionsPage({
                           : "待更新"}
                       </td>
                       <td className="py-4 text-right font-semibold text-slate-950">
-                        {position.priceStatus === "priced"
+                        {hasCurrentPrice
                           ? formatCurrency(position.marketValue)
                           : "—"}
                       </td>
-                      <td
-                        className={`py-4 text-right font-medium ${
-                          position.unrealizedPnL >= 0
-                            ? "text-emerald-700"
-                            : "text-red-700"
-                        }`}
-                      >
-                        {position.priceStatus === "priced"
+                      <td className={`py-4 text-right ${pnlColorClass}`}>
+                        {hasCurrentPrice
                           ? formatCurrency(position.unrealizedPnL)
                           : "—"}
                       </td>
-                      <td className="py-4 text-right text-slate-600">
-                        {position.priceStatus === "priced"
+                      <td className={`py-4 text-right ${pnlColorClass}`}>
+                        {hasCurrentPrice
                           ? formatPercent(position.unrealizedReturnPercent)
                           : "—"}
                       </td>
-                      <td
-                        className={`py-4 text-right font-medium ${
-                          position.realizedPnL >= 0
-                            ? "text-emerald-700"
-                            : "text-red-700"
-                        }`}
-                      >
+                      <td className={`py-4 text-right ${realizedColorClass}`}>
                         {formatCurrency(position.realizedPnL)}
                       </td>
-                      <td
-                        className={`py-4 text-right font-medium ${
-                          position.totalPnL >= 0
-                            ? "text-emerald-700"
-                            : "text-red-700"
-                        }`}
-                      >
-                        {position.priceStatus === "priced"
+                      <td className={`py-4 text-right ${totalColorClass}`}>
+                        {hasCurrentPrice
                           ? formatCurrency(position.totalPnL)
                           : "—"}
                       </td>
                       <td className="py-4 text-slate-600">
-                        {position.priceStatus === "priced"
+                        {hasCurrentPrice
                           ? `已定價 ${position.lastPriceDate ?? ""}`
                           : "待更新"}
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* 行動裝置卡片清單 */}
+          <div className="grid gap-4 md:hidden">
+            {pricedPositions.map((position) => {
+              const hasCurrentPrice = position.priceStatus === "priced";
+              const isPnlPositive = position.unrealizedPnL > 0;
+              const isPnlNegative = position.unrealizedPnL < 0;
+              const pnlColorClass = isPnlPositive
+                ? "text-emerald-700 font-semibold"
+                : isPnlNegative
+                ? "text-red-700 font-semibold"
+                : "text-slate-600";
+
+              const isRealizedPositive = position.realizedPnL > 0;
+              const isRealizedNegative = position.realizedPnL < 0;
+              const realizedPnLColorClass = isRealizedPositive
+                ? "text-emerald-700 font-semibold"
+                : isRealizedNegative
+                ? "text-red-700 font-semibold"
+                : "text-slate-600";
+
+              const isTotalPositive = position.totalPnL > 0;
+              const isTotalNegative = position.totalPnL < 0;
+              const totalPnLColorClass = isTotalPositive
+                ? "text-emerald-700 font-semibold"
+                : isTotalNegative
+                ? "text-red-700 font-semibold"
+                : "text-slate-600";
+
+              return (
+                <div
+                  key={position.symbol}
+                  className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm"
+                >
+                  {/* 卡片標頭：代號、名稱與類別 */}
+                  <div className="flex items-start justify-between gap-2 border-b border-stone-100 pb-3">
+                    <div>
+                      <span className="text-lg font-bold text-slate-950">
+                        {position.symbol}
+                      </span>
+                      <h3 className="text-sm text-slate-700 font-medium mt-0.5">
+                        {position.name}
+                      </h3>
+                    </div>
+                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-800 shrink-0">
+                      {position.category}
+                    </span>
+                  </div>
+
+                  {/* 內容：股數與成本市值網格 */}
+                  <div className="grid grid-cols-2 gap-y-3 gap-x-4 py-3 text-xs border-b border-stone-100">
+                    <div>
+                      <p className="text-slate-400">目前股數</p>
+                      <p className="text-sm font-medium text-slate-900 mt-0.5">
+                        {formatShares(position.shares)} 股
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-slate-400">最新價格</p>
+                      <p className="text-sm font-medium text-slate-900 mt-0.5">
+                        {position.marketPrice ? formatCurrency(position.marketPrice) : "待更新"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-slate-400">投入成本</p>
+                      <p className="text-sm font-medium text-slate-700 mt-0.5">
+                        {formatCurrency(position.totalCost)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-slate-400">目前市值</p>
+                      <p className="text-sm font-semibold text-slate-950 mt-0.5">
+                        {hasCurrentPrice ? formatCurrency(position.marketValue) : "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-slate-400">平均成本</p>
+                      <p className="text-sm font-medium text-slate-700 mt-0.5">
+                        {formatCurrency(position.averageCost)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-slate-400">價格狀態</p>
+                      <p className="text-sm font-medium text-slate-700 mt-0.5">
+                        {hasCurrentPrice
+                          ? `已定價 ${position.lastPriceDate ?? ""}`
+                          : "待更新"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* 損益網格 */}
+                  <div className="grid grid-cols-2 gap-y-3 gap-x-4 pt-3 text-xs">
+                    <div>
+                      <p className="text-slate-400">未實現損益 / 報酬</p>
+                      <p className={`text-sm mt-0.5 ${pnlColorClass}`}>
+                        {hasCurrentPrice
+                          ? `${formatCurrency(position.unrealizedPnL)} (${formatPercent(position.unrealizedReturnPercent)})`
+                          : "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-slate-400">已實現損益</p>
+                      <p className={`text-sm mt-0.5 ${realizedPnLColorClass}`}>
+                        {formatCurrency(position.realizedPnL)}
+                      </p>
+                    </div>
+                    <div className="col-span-2 border-t border-stone-50 pt-2 mt-1">
+                      <p className="text-slate-400">總損益</p>
+                      <p className={`text-sm font-bold mt-0.5 ${totalPnLColorClass}`}>
+                        {hasCurrentPrice ? formatCurrency(position.totalPnL) : "—"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
           </SectionCard>
         </div>
 
@@ -707,13 +834,13 @@ export default function TransactionsPage({
         </details>
 
         <SectionCard title="交易明細" description="依日期由新到舊排序。">
-          <div className="overflow-x-auto">
-              <table className="w-full min-w-[980px] whitespace-nowrap text-left text-sm">
-                <thead>
-                  <tr className="border-b border-stone-200 text-slate-500">
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full min-w-[980px] whitespace-nowrap text-left text-sm">
+              <thead>
+                <tr className="border-b border-stone-200 text-slate-500">
                   <th className="pb-3 font-medium">日期</th>
                   <th className="pb-3 font-medium">買進/賣出</th>
-                    <th className="bg-white pb-3 font-medium md:sticky md:left-0 md:z-[1]">代號</th>
+                  <th className="bg-white pb-3 font-medium md:sticky md:left-0 md:z-[1]">代號</th>
                   <th className="pb-3 font-medium">名稱</th>
                   <th className="pb-3 text-right font-medium">股數</th>
                   <th className="pb-3 text-right font-medium">成交價</th>
@@ -782,6 +909,103 @@ export default function TransactionsPage({
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* 行動裝置卡片清單 */}
+          <div className="grid gap-4 md:hidden">
+            {transactions.length === 0 ? (
+              <p className="py-6 text-center text-slate-500 bg-stone-50 rounded-lg">
+                尚未建立交易紀錄。
+              </p>
+            ) : (
+              transactions.map((transaction) => {
+                const totalAmount = transaction.shares * transaction.price;
+
+                return (
+                  <div
+                    key={transaction.id}
+                    className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm"
+                  >
+                    {/* 卡片標頭：日期、買賣狀態、代號與名稱 */}
+                    <div className="flex items-start justify-between gap-2 border-b border-stone-100 pb-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-500 font-medium">
+                            {transaction.date}
+                          </span>
+                          <span
+                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${
+                              transaction.type === "buy"
+                                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                                : "bg-red-50 text-red-700 ring-1 ring-red-200"
+                            }`}
+                          >
+                            {getTypeLabel(transaction.type)}
+                          </span>
+                        </div>
+                        <h3 className="text-sm font-bold text-slate-950 mt-1">
+                          {transaction.symbol} <span className="font-medium text-slate-700 ml-1">{transaction.name}</span>
+                        </h3>
+                      </div>
+                    </div>
+
+                    {/* 卡片內容：股數、單價、總額、手續費、稅 */}
+                    <div className="grid grid-cols-2 gap-y-3 gap-x-4 py-3 text-xs border-b border-stone-100">
+                      <div>
+                        <p className="text-slate-400">交易股數</p>
+                        <p className="text-sm font-medium text-slate-900 mt-0.5">
+                          {formatShares(transaction.shares)} 股
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400">成交單價</p>
+                        <p className="text-sm font-medium text-slate-900 mt-0.5">
+                          {formatCurrency(transaction.price)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400">交易總金額</p>
+                        <p className="text-sm font-semibold text-slate-950 mt-0.5">
+                          {formatCurrency(totalAmount)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400">手續費 / 交易稅</p>
+                        <p className="text-sm font-medium text-slate-700 mt-0.5">
+                          {formatCurrency(transaction.fee ?? 0)} / {formatCurrency(transaction.tax ?? 0)}
+                        </p>
+                      </div>
+                      {transaction.note ? (
+                        <div className="col-span-2">
+                          <p className="text-slate-400">交易備註</p>
+                          <p className="text-sm font-medium text-slate-600 mt-0.5 break-all">
+                            {transaction.note}
+                          </p>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {/* 卡片底部操作：按鈕組 */}
+                    <div className="flex justify-end gap-3 pt-3">
+                      <button
+                        className="rounded-lg border border-stone-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-stone-50 grow sm:grow-0 text-center"
+                        onClick={() => handleEdit(transaction)}
+                        type="button"
+                      >
+                        編輯
+                      </button>
+                      <button
+                        className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-100 grow sm:grow-0 text-center"
+                        onClick={() => handleDelete(transaction)}
+                        type="button"
+                      >
+                        刪除
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </SectionCard>
       </div>

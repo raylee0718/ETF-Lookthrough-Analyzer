@@ -205,7 +205,7 @@ export async function fetchEtfHoldingsByConfig(
   return createResult({
     config: normalizedConfig,
     status: "unsupported",
-    warnings: ["custom provider 尚未實作，請先使用 CSV 匯入。"],
+    warnings: ["自訂來源尚未支援，請先使用 CSV 匯入。"],
   });
 }
 

@@ -317,7 +317,7 @@ export default function LookthroughPage({
             </div>
           ) : null}
 
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full min-w-[980px] text-left text-sm">
               <thead>
                 <tr className="border-b border-stone-200 text-slate-500">
@@ -378,6 +378,81 @@ export default function LookthroughPage({
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* 行動裝置卡片清單 */}
+          <div className="grid gap-4 md:hidden">
+            {displayLookthroughExposures.map((exposure) => (
+              <div
+                key={exposure.stockSymbol}
+                className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm"
+              >
+                {/* 標頭：股票代號、名稱與佔比徽章 */}
+                <div className="flex items-start justify-between gap-2 border-b border-stone-100 pb-3">
+                  <div>
+                    <span className="text-base font-bold text-slate-950">
+                      {exposure.stockSymbol}
+                    </span>
+                    <h3 className="text-sm text-slate-700 font-medium mt-0.5">
+                      {exposure.stockName}
+                    </h3>
+                    {exposure.isGroupedSmallExposure && exposure.groupedCount ? (
+                      <p className="mt-1 text-xs text-slate-500">
+                        已彙總 {exposure.groupedCount} 檔低於門檻的
+                        {getUnderlyingMarketLabel(exposure.underlyingMarket)}
+                      </p>
+                    ) : null}
+                  </div>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-800 shrink-0">
+                    {formatPercent(exposure.portfolioWeight)}
+                  </span>
+                </div>
+
+                {/* 內容：穿透金額、市場、產業 */}
+                <div className="grid grid-cols-2 gap-y-3 gap-x-4 py-3 text-xs border-b border-stone-100">
+                  <div>
+                    <p className="text-slate-400">穿透後金額</p>
+                    <p className="text-sm font-semibold text-slate-950 mt-0.5">
+                      {formatCurrency(exposure.exposureValue)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400">成分市場</p>
+                    <p className="text-sm font-medium text-slate-700 mt-0.5">
+                      {getUnderlyingMarketLabel(exposure.underlyingMarket)}
+                    </p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-slate-400">產業分類</p>
+                    <p className="text-sm font-medium text-slate-700 mt-0.5">
+                      {exposure.industry ?? "未分類"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* 來源拆解 */}
+                <div className="pt-3 text-xs">
+                  <p className="text-slate-400 mb-2">曝險來源</p>
+                  <div className="flex flex-col gap-1.5">
+                    {exposure.sources.map((source) => (
+                      <div
+                        key={source.sourceSymbol}
+                        className="flex items-center justify-between text-slate-600 bg-stone-50 px-2.5 py-1.5 rounded-lg"
+                      >
+                        <span className="font-medium">
+                          {exposure.isGroupedSmallExposure
+                            ? source.sourceName
+                            : `${source.sourceSymbol} ${source.sourceName}`}
+                        </span>
+                        <span className="font-semibold text-slate-800">
+                          {formatCurrency(source.exposureValue)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </SectionCard>
 

@@ -207,7 +207,7 @@ export function getKnownTaiwanEtfProviderCapabilities(): KnownTaiwanEtfProviderC
       etfName: "元大台灣50",
       issuer: "元大證券投資信託股份有限公司",
       status: "ready_for_provider",
-      statusLabel: "0050 provider 試作中",
+      statusLabel: "0050 官方來源測試中",
       officialCandidateUrls: [YUANTA_0050_PCF_URL, YUANTA_0050_HOLDINGS_URL],
       candidateSourceNotes: [
         "官方 PCF/Daily JSON 已可解析完整股票權重，但瀏覽器端可能受 CORS 限制。",
@@ -229,8 +229,8 @@ export function getKnownTaiwanEtfProviderCapabilities(): KnownTaiwanEtfProviderC
       ],
       candidateSourceNotes: [
         "已找到統一投信官方 PCF AJAX：POST /ETF/Transaction/GetPCF，回傳股票代號、名稱、股數、金額與 NavRate 持股權重。",
-        "00981A 官方 PCF JSON parser POC 已可將 asset[AssetCode=ST].Details 轉成 EtfConstituent[]。",
-        "官方 JSON 端點未回 CORS header，前端瀏覽器自動化可能需要 serverless proxy；本步驟仍不接 production provider。",
+        "00981A 官方 PCF 可轉成成分股資料。",
+        "官方端點可能無法由瀏覽器直接讀取，若更新失敗請使用 CSV 匯入。",
       ],
       recommendedFallback: "目前仍建議 CSV 匯入；下一步是評估 serverless proxy 或 parser proof-of-concept 的部署方式。",
     },
@@ -250,9 +250,9 @@ export function getKnownTaiwanEtfProviderCapabilities(): KnownTaiwanEtfProviderC
       ],
       candidateSourceNotes: [
         "已找到第一金投信官方 FundDetail AJAX：POST /WebAPI.aspx/Get_hd，可回傳股票代號、名稱、持股權重與股數。",
-        "00994A 官方 Get_hd JSON parser POC 已可將 group=1 股票列轉成 EtfConstituent[]。",
+        "00994A 官方資料可轉成成分股資料。",
         "TWSE ETF productContent 可確認 00994A 的官方 PCF 入口指向第一金 FundDetail 申購買回清單頁。",
-        "官方 JSON 端點未回 CORS header，前端瀏覽器自動化可能需要 serverless proxy；本步驟仍不接 production provider。",
+        "官方端點可能無法由瀏覽器直接讀取，若更新失敗請使用 CSV 匯入。",
         "00994A 已非目前使用者優先標的，保留為低優先度 / CSV fallback。",
       ],
       recommendedFallback: "低優先度保留；目前仍建議 CSV 匯入，不列入 0050 / 00981A 主要自動化焦點。",
@@ -262,7 +262,7 @@ export function getKnownTaiwanEtfProviderCapabilities(): KnownTaiwanEtfProviderC
       etfName: "元大S&P500",
       issuer: "元大投信",
       status: "parser_poc_ready",
-      statusLabel: "00646 parser POC 已建立；尚未接入一鍵更新",
+      statusLabel: "00646 官方來源測試中",
       officialCandidateUrls: [
         YUANTA_00646_PCF_URL,
         YUANTA_00646_BASIC_INFORMATION_URL,
@@ -271,12 +271,12 @@ export function getKnownTaiwanEtfProviderCapabilities(): KnownTaiwanEtfProviderC
       candidateSourceNotes: [
         "00646 為海外成分股 ETF，需將股票成分分類為 US / 美股成分。",
         "元大 PCF/Daily 官方 JSON 含 FundWeights.StockWeights，可取得股票代號、名稱、股數與直接權重。",
-        "00646 官方 PCF/Daily JSON parser POC 已可將股票列轉成 EtfConstituent[]，且固定 underlyingMarket 為 US。",
-        "同一 JSON 也含 FutureWeights 與 Cash 區塊；parser POC 應先只轉換股票列，期貨 / 現金留待未來非股票曝險設計。",
+        "00646 官方資料可將股票列轉成美股成分。",
+        "期貨與現金不列入股票穿透成分。",
         "需要沿用 00646 ticker cleanup，處理 UQ / UN 等 Bloomberg-like suffix 與 BRK/B 類 class-share 代號。",
       ],
       recommendedFallback:
-        "CSV / 貼上表格匯入仍保留；自動 00646 provider 尚未實作。",
+        "CSV / 貼上表格匯入仍保留。",
     },
   ];
 }
@@ -455,7 +455,7 @@ export function parseYuanta00646HoldingsResponse(
     ignoredNonStockRows.margin > 0
   ) {
     warnings.push(
-      `00646 parser POC 已忽略非股票列：期貨 ${ignoredNonStockRows.futures} 筆、現金 ${ignoredNonStockRows.cash} 筆、保證金 ${ignoredNonStockRows.margin} 筆。`,
+      `已忽略 00646 非股票列：期貨 ${ignoredNonStockRows.futures} 筆、現金 ${ignoredNonStockRows.cash} 筆、保證金 ${ignoredNonStockRows.margin} 筆。`,
     );
   }
 
@@ -1035,7 +1035,7 @@ export async function fetchYuanta0050Holdings(): Promise<EtfHoldingsFetchResult>
       status: safeToSave ? "supported" : "partial",
       constituents: parsedPcf.constituents,
       warnings: [
-        "目前正在試作 0050 provider；尚未代表所有元大 ETF 或台灣 ETF 都支援。",
+        "目前僅支援部分台灣 ETF 官方來源。",
         "優先嘗試元大官方 PCF/Daily JSON；若瀏覽器受 CORS 限制，請改用 CSV 匯入。",
         ...parsedPcf.warnings,
       ],
@@ -1084,7 +1084,7 @@ export async function fetchYuanta0050Holdings(): Promise<EtfHoldingsFetchResult>
       status: safeToSave ? "supported" : "partial",
       constituents: parsedRatio.constituents,
       warnings: [
-        "目前正在試作 0050 provider；尚未代表所有元大 ETF 或台灣 ETF 都支援。",
+        "目前僅支援部分台灣 ETF 官方來源。",
         `元大 0050 持股比重頁目前只解析到 ${parsedRatio.constituents.length} 筆股票權重，可能是頁面摘要而非完整成分股清單。`,
         "若要完整穿透分析，請先使用 CSV 匯入完整 0050 成分股。",
         ...parsedRatio.warnings,

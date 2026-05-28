@@ -175,7 +175,7 @@ export default function Dashboard({
 
   return (
     <main className="min-h-screen bg-stone-100 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+      <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-6">
         <header className="py-3">
           <h1 className="mt-2 text-3xl font-semibold tracking-normal text-slate-950">
             ETF Lookthrough 投資組合分析
@@ -308,7 +308,7 @@ export default function Dashboard({
         </section>
 
         <section className="rounded-lg border border-blue-200 bg-blue-50 p-5 text-blue-950">
-          <h2 className="text-base font-semibold">{portfolioSource.modeLabel}</h2>
+          <h2 className="text-base font-semibold">分析資料</h2>
           <div className="mt-2 grid gap-2 text-sm leading-6">
             {portfolioSource.dataQualityNotes.map((note) => (
               <p key={note}>{note}</p>
@@ -333,12 +333,12 @@ export default function Dashboard({
           <StatCard
             label="分析用總市值"
             value={formatCurrency(portfolioSource.totalMarketValue)}
-            helperText={portfolioSource.modeLabel}
+            helperText="已納入分析"
           />
           <StatCard
             label="分析用持股數"
             value={`${holdingsForAnalysis.length} 筆`}
-            helperText="目前模式的持股資料"
+            helperText="目前分析資料"
           />
           <StatCard
             label="穿透後股票數"

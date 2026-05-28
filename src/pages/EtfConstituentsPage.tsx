@@ -92,10 +92,10 @@ const providerSupportLevelLabels: Record<
   EtfHoldingsProviderSupportLevel,
   string
 > = {
-  full: "full",
-  partial: "partial",
-  blocked_by_cors: "blocked by CORS",
-  unsupported: "unsupported",
+  full: "完整支援",
+  partial: "部分支援",
+  blocked_by_cors: "瀏覽器無法直接讀取",
+  unsupported: "尚未支援",
 };
 
 const getProviderTypeLabel = (providerType: EtfHoldingsProviderType) =>
@@ -137,6 +137,12 @@ const formatDiagnosticTime = (value?: string) => {
   });
 };
 
+const getProxyStatusLabel = (status: EtfHoldingsProxyResponse["status"]) => {
+  if (status === "ok") return "可用";
+  if (status === "partial") return "部分資料";
+  return "失敗";
+};
+
 const getExecutionEnvironmentLabel = (result: EtfHoldingsFetchResult) => {
   const runtime = result.runtimeDiagnostics;
 
@@ -158,7 +164,7 @@ const getExecutionEnvironmentLabel = (result: EtfHoldingsFetchResult) => {
 
 const getProviderDecisionNote = (result: EtfHoldingsFetchResult) => {
   if (isProviderResultSafeToSave(result)) {
-    return "0050 provider 可在目前瀏覽器環境使用。你可以儲存此結果，並用於穿透分析。";
+    return "0050 官方來源可在目前瀏覽器環境使用。你可以儲存此結果，並用於穿透分析。";
   }
 
   if (result.supportLevel === "blocked_by_cors") {
@@ -317,7 +323,7 @@ const getProxyWarningSummary = (result: EtfHoldingsProxyResponse) => {
     return "官方 PCF 含部分非持股或無效列，已略過，不影響有效成分股儲存。";
   }
 
-  return `${result.warnings.length} 則警示，請展開技術細節查看。`;
+  return `${result.warnings.length} 則警示，請展開詳細資訊查看。`;
 };
 
 const getUpdateNeedLabel = (localAsOfDate?: string, fetchedAsOfDate?: string) => {
@@ -1049,7 +1055,7 @@ export default function EtfConstituentsPage({
       etfSymbol: "0050",
       providerType: "issuer",
       sourceUrl: YUANTA_0050_PCF_URL,
-      notes: "0050 provider prototype；優先測試官方 PCF，ratio page 作為備援診斷。",
+      notes: "優先測試官方 PCF，持股比重頁作為備援診斷。",
       enabled: true,
     };
 
@@ -1068,7 +1074,7 @@ export default function EtfConstituentsPage({
     }
 
     const confirmed = window.confirm(
-      `確定要用 provider 回傳的 ${result.constituents.length} 筆成分股取代 ${result.etfSymbol} 目前儲存的成分股嗎？`,
+      `確定要用來源回傳的 ${result.constituents.length} 筆成分股取代 ${result.etfSymbol} 目前儲存的成分股嗎？`,
     );
 
     if (!confirmed) {
@@ -1322,13 +1328,8 @@ export default function EtfConstituentsPage({
               更新失敗，請改用 CSV 匯入或稍後再試。
             </p>
             <details className="mt-2">
-              <summary className="cursor-pointer font-medium">技術錯誤</summary>
+              <summary className="cursor-pointer font-medium">錯誤詳情</summary>
               <p className="mt-2 break-words">{fetchError.message}</p>
-              {fetchError.payload ? (
-                <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-white p-3 text-xs text-slate-700">
-                  {JSON.stringify(fetchError.payload, null, 2)}
-                </pre>
-              ) : null}
             </details>
           </div>
         ) : null}
@@ -1342,7 +1343,9 @@ export default function EtfConstituentsPage({
               </p>
               <p>
                 <span className="text-slate-500">狀態：</span>
-                <span className="font-semibold text-slate-950">{result.status}</span>
+                <span className="font-semibold text-slate-950">
+                  {getProxyStatusLabel(result.status)}
+                </span>
               </p>
               <p>
                 <span className="text-slate-500">本地資料日期：</span>
@@ -1396,13 +1399,13 @@ export default function EtfConstituentsPage({
 
             {result.status === "partial" ? (
               <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
-                {"此來源回傳 partial，請確認摘要後再儲存。"}
+                {"此來源只回傳部分資料，請確認摘要後再儲存。"}
               </p>
             ) : null}
 
             <details className="rounded-lg border border-stone-200 bg-white p-3 leading-6 text-slate-700">
               <summary className="cursor-pointer font-semibold text-slate-950">
-                {"技術細節"}
+                {"詳細資訊"}
               </summary>
               <div className="mt-3 grid gap-3">
                 <p>{"資料來源："}{result.source}</p>
@@ -1434,11 +1437,6 @@ export default function EtfConstituentsPage({
                       <p key={error}>- {error}</p>
                     ))}
                   </div>
-                ) : null}
-                {result.debug ? (
-                  <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-stone-50 p-3 text-xs text-slate-700">
-                    {JSON.stringify(result.debug, null, 2)}
-                  </pre>
                 ) : null}
               </div>
             </details>
@@ -1514,7 +1512,7 @@ export default function EtfConstituentsPage({
 
   return (
     <main className="min-h-screen bg-stone-100 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+      <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-6">
         <header className="flex flex-col gap-3 py-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="mt-2 text-3xl font-semibold tracking-normal text-slate-950">
@@ -1728,7 +1726,7 @@ export default function EtfConstituentsPage({
                             </td>
                             <td className="py-4 text-slate-700">{etf.name}</td>
                             <td className="py-4 text-slate-700">
-                              {result?.status ?? (error ? "失敗" : "-")}
+                              {result ? getProxyStatusLabel(result.status) : error ? "失敗" : "-"}
                             </td>
                             <td className="py-4 text-slate-600">
                               {result?.asOfDate ?? "-"}
@@ -1776,11 +1774,6 @@ export default function EtfConstituentsPage({
                         {error ? (
                           <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-red-800">
                             <p>{error.message}</p>
-                            {error.payload ? (
-                              <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-white p-3 text-xs text-slate-700">
-                                {JSON.stringify(error.payload, null, 2)}
-                              </pre>
-                            ) : null}
                           </div>
                         ) : null}
                         {result ? (
@@ -1817,7 +1810,7 @@ export default function EtfConstituentsPage({
                             </div>
                             {result.status === "partial" ? (
                               <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
-                                此來源回傳 partial，請確認警示後再儲存。
+                                此來源只回傳部分資料，請確認警示後再儲存。
                               </p>
                             ) : null}
                             {result.warnings.length > 0 ? (
@@ -2007,10 +2000,10 @@ export default function EtfConstituentsPage({
 
         <details className="rounded-lg border border-stone-200 bg-stone-50 p-4">
           <summary className="cursor-pointer text-base font-semibold text-slate-950">
-            進階 provider 診斷與設定
+            進階來源診斷與設定
           </summary>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            來源診斷與 provider 設定工具。
+            來源診斷與設定工具。
           </p>
           <div className="mt-4 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
           <SectionCard
@@ -2023,7 +2016,7 @@ export default function EtfConstituentsPage({
               </p>
 
               <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-950">
-                <p className="font-semibold">目前正在試作 0050 provider。</p>
+                <p className="font-semibold">0050 官方來源測試</p>
                 <p>
                   會優先測試官方 PCF 申購買回清單，再以持股比重頁作為診斷備援。若自動來源抓取失敗，請使用 CSV 匯入。CSV 匯入仍是目前最穩定的備援流程。
                 </p>
@@ -2036,7 +2029,7 @@ export default function EtfConstituentsPage({
                   onClick={handleCreateYuanta0050Provider}
                   type="button"
                 >
-                  建立 0050 元大台灣50 provider
+                  建立 0050 元大台灣50 來源設定
                 </button>
               </div>
 
@@ -2098,7 +2091,7 @@ export default function EtfConstituentsPage({
                 </label>
 
                 <label className="grid gap-2 text-sm font-medium text-slate-700">
-                  provider type
+                  來源類型
                   <select
                     className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                     onChange={(event) =>
@@ -2200,7 +2193,7 @@ export default function EtfConstituentsPage({
                     <thead>
                       <tr className="border-b border-stone-200 text-slate-500">
                         <th className="pb-3 font-medium">ETF 代號</th>
-                        <th className="pb-3 font-medium">provider type</th>
+                        <th className="pb-3 font-medium">來源類型</th>
                         <th className="pb-3 font-medium">source URL</th>
                         <th className="pb-3 font-medium">enabled</th>
                         <th className="pb-3 font-medium">notes</th>
@@ -2240,7 +2233,7 @@ export default function EtfConstituentsPage({
                                   </p>
                                   <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-blue-950">
                                     <p className="font-semibold">
-                                      0050 provider 實機診斷
+                                      0050 官方來源診斷
                                     </p>
                                     <div className="mt-2 grid gap-1">
                                       <p>
@@ -2310,7 +2303,7 @@ export default function EtfConstituentsPage({
                                     </div>
                                     <details className="mt-3 rounded-lg border border-blue-100 bg-white p-3">
                                       <summary className="cursor-pointer font-medium">
-                                        技術細節
+                                        詳細資訊
                                       </summary>
                                       <div className="mt-2 grid gap-2 break-words text-xs text-slate-600">
                                         <p>
@@ -2496,7 +2489,7 @@ export default function EtfConstituentsPage({
                                           }
                                           type="button"
                                         >
-                                          儲存此 provider 結果
+                                          儲存此來源結果
                                         </button>
                                       ) : (
                                         <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">

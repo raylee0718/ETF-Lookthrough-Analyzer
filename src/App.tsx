@@ -89,7 +89,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-stone-100">
       <nav className="sticky top-0 z-10 border-b border-stone-200 bg-white/95 px-3 py-3 backdrop-blur sm:px-6 lg:px-8">
-        <div className="mx-auto flex max-w-6xl flex-col gap-3">
+        <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <p className="text-sm font-semibold text-slate-950">
@@ -98,7 +98,7 @@ export default function App() {
               <p className="text-xs text-slate-500">交易、持股、成分股、穿透</p>
             </div>
 
-            <div className="-mx-1 flex gap-1 overflow-x-auto rounded-lg bg-stone-100 p-1 sm:mx-0">
+            <div className="-mx-1 flex max-w-full gap-1 overflow-x-auto rounded-lg bg-stone-100 p-1 sm:mx-0">
               {mvpNavItems.map((item) => (
                 <button
                   className={`shrink-0 rounded-md px-3 py-2 text-sm font-medium transition ${
@@ -126,7 +126,7 @@ export default function App() {
             </button>
 
             {showAdvancedTools ? (
-              <div className="flex gap-1 overflow-x-auto rounded-lg bg-stone-50 p-1">
+              <div className="flex max-w-full gap-1 overflow-x-auto rounded-lg bg-stone-50 p-1">
                 {advancedNavItems.map((item) => (
                   <button
                     className={`shrink-0 rounded-md px-3 py-2 text-sm font-medium transition ${
